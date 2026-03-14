@@ -9,13 +9,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#f4f2ea",
-        foreground: "#101010",
-        surface: "#fbfaf6",
-        accent: "#14532d",
-        accentSoft: "#dff3d8",
-        border: "#d8d2c3",
-        muted: "#6b665d",
+        background: "#1a1a1a",
+        foreground: "#f5f5f5",
+        surface: "#262626",
+        accent: "#f5f5f5",
+        accentForeground: "#18181b",
+        border: "#3a3a3a",
+        borderStrong: "#4a4a4a",
+        muted: "#a1a1aa",
       },
       fontFamily: {
         sans: ["Avenir Next", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
@@ -23,7 +24,7 @@ const config: Config = {
         mono: ["IBM Plex Mono", "SFMono-Regular", "Consolas", "Liberation Mono", "monospace"],
       },
       boxShadow: {
-        panel: "0 18px 60px rgba(16, 16, 16, 0.08)",
+        panel: "0 0 0 rgba(0, 0, 0, 0)",
       },
     },
   },

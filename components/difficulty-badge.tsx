@@ -1,15 +1,15 @@
 import type { Difficulty } from "@/types/problem";
 
 const styles: Record<Difficulty, string> = {
-  Easy: "border-emerald-700/20 bg-emerald-100 text-emerald-800",
-  Medium: "border-amber-700/20 bg-amber-100 text-amber-800",
-  Hard: "border-rose-700/20 bg-rose-100 text-rose-800",
+  Easy: "border border-emerald-400/20 bg-emerald-400/10 text-emerald-300",
+  Medium: "border border-amber-400/20 bg-amber-400/10 text-amber-300",
+  Hard: "border border-rose-400/20 bg-rose-400/10 text-rose-300",
 };
 
 export function DifficultyBadge({ difficulty }: { difficulty: Difficulty }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${styles[difficulty]}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.18em] ${styles[difficulty]}`}
     >
       {difficulty}
     </span>
