@@ -13,7 +13,11 @@ import {
 import { DifficultyBadge } from "@/components/difficulty-badge";
 import { FeedbackPanel } from "@/components/feedback-panel";
 import { ProblemPane } from "@/components/problem-pane";
-import type { Review } from "@/lib/review-schema";
+import type {
+  FeedbackPanelMode,
+  Review,
+  ReviewMode,
+} from "@/lib/review-schema";
 import type { Problem } from "@/types/problem";
 
 type ProblemWorkspaceProps = {
@@ -29,6 +33,8 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   const [pseudocode, setPseudocode] = useState("");
   const [draftReady, setDraftReady] = useState(false);
   const [feedback, setFeedback] = useState<Review | null>(null);
+  const [panelMode, setPanelMode] = useState<FeedbackPanelMode>("standard");
+  const [feedbackMode, setFeedbackMode] = useState<ReviewMode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const lineCount = useMemo(
@@ -39,6 +45,8 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     () => Array.from({ length: lineCount }, (_, index) => index + 1),
     [lineCount],
   );
+  const activeReviewMode: ReviewMode =
+    panelMode === "standard" ? "standard" : "ai_guide";
 
   useEffect(() => {
     const savedDraft = window.localStorage.getItem(storageKey);
@@ -64,6 +72,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     if (!pseudocode.trim()) {
       setError("Add some pseudocode first so the reviewer has something to assess.");
       setFeedback(null);
+      setFeedbackMode(null);
       return;
     }
 
@@ -79,6 +88,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
         body: JSON.stringify({
           problemSlug: problem.slug,
           pseudocode,
+          reviewMode: activeReviewMode,
         }),
       });
 
@@ -89,8 +99,10 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
       }
 
       setFeedback(data.feedback);
+      setFeedbackMode(activeReviewMode);
     } catch (reviewError) {
       setFeedback(null);
+      setFeedbackMode(null);
       setError(
         reviewError instanceof Error
           ? reviewError.message
@@ -184,9 +196,14 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
 
           <FeedbackPanel
             feedback={feedback}
+            problemSlug={problem.slug}
+            pseudocode={pseudocode}
+            panelMode={panelMode}
+            feedbackMode={feedbackMode}
+            onPanelModeChange={setPanelMode}
             loading={loading}
             error={error}
-            className="xl:min-h-0 xl:overflow-y-auto"
+            className="xl:min-h-0"
           />
         </div>
       </div>

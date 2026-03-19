@@ -6,6 +6,9 @@ export const reviewVerdictSchema = z.enum([
   "incorrect",
 ]);
 
+export const reviewModeSchema = z.enum(["standard", "ai_guide"]);
+export const quickHelpModeSchema = z.enum(["question", "hint"]);
+
 export const reviewSchema = z.object({
   verdict: reviewVerdictSchema,
   summary: z.string(),
@@ -21,8 +24,25 @@ export const reviewSchema = z.object({
 export const reviewRequestSchema = z.object({
   problemSlug: z.string().min(1),
   pseudocode: z.string().trim().min(1).max(12000),
+  reviewMode: reviewModeSchema.default("standard"),
+});
+
+export const quickHelpRequestSchema = z.object({
+  problemSlug: z.string().min(1),
+  pseudocode: z.string().max(12000).default(""),
+  mode: quickHelpModeSchema,
+  question: z.string().trim().min(1).max(200),
+});
+
+export const quickHelpResponseSchema = z.object({
+  answer: z.string(),
 });
 
 export type ReviewVerdict = z.infer<typeof reviewVerdictSchema>;
+export type ReviewMode = z.infer<typeof reviewModeSchema>;
+export type QuickHelpMode = z.infer<typeof quickHelpModeSchema>;
+export type FeedbackPanelMode = ReviewMode | "quick_question";
 export type Review = z.infer<typeof reviewSchema>;
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>;
+export type QuickHelpRequest = z.infer<typeof quickHelpRequestSchema>;
+export type QuickHelpResponse = z.infer<typeof quickHelpResponseSchema>;

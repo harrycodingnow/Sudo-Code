@@ -43,6 +43,20 @@ export async function POST(request: Request) {
     }
 
     const client = new OpenAI({ apiKey });
+    const guideMode = result.data.reviewMode === "ai_guide";
+    const coachingInstructions = guideMode
+      ? `Coaching style:
+- Never give the answer directly. Ask guiding questions instead.
+- Break problems into tiny steps.
+- Validate what is right, then correct what is wrong without discouraging.
+- Let the candidate write the code themselves, then fix mistakes incrementally.
+- Use trace-throughs to solidify understanding.
+- Do not reveal the complete corrected algorithm, full code, or polished pseudocode.
+- In the summary and arrays, prefer short questions, prompts, and next-step nudges over declarative answers.`
+      : `Response style:
+- Be direct about what is correct, incomplete, or incorrect.
+- Prefer concise, concrete statements over hints.
+- You may state the missing step explicitly when it materially improves the feedback.`;
 
     const response = await client.responses.parse({
       model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
@@ -61,7 +75,9 @@ Your job:
 - Keep feedback concise, useful, and fair.
 - Do not hallucinate steps that are not implied by the candidate's answer.
 - If the candidate is directionally right but underspecified, use "partially_correct".
-- Prefer short, direct phrases in arrays. Use empty arrays instead of filler text.`,
+- Prefer short, direct phrases in arrays. Use empty arrays instead of filler text.
+
+${coachingInstructions}`,
             },
           ],
         },
@@ -81,6 +97,8 @@ Key concepts: ${JSON.stringify(problem.keyConcepts)}
 
 Candidate pseudocode:
 ${result.data.pseudocode}
+
+Selected review mode: ${guideMode ? "AI Guide" : "Standard"}
 
 Return structured feedback for this candidate.`,
             },
