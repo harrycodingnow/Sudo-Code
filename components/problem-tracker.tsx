@@ -200,29 +200,29 @@ function TrackerBadge({
     | "complexity";
 }) {
   const styles: Record<typeof tone, string> = {
-    easy: "bg-emerald-400/15 text-emerald-200",
-    medium: "bg-amber-400/15 text-amber-200",
-    hard: "bg-rose-400/15 text-rose-200",
-    todo: "bg-white/10 text-white",
-    progress: "bg-amber-400/15 text-amber-200",
-    review: "bg-rose-400/15 text-rose-200",
-    completed: "bg-emerald-400/15 text-emerald-200",
-    daily: "bg-rose-400/15 text-rose-200",
-    weekly: "bg-amber-400/15 text-amber-200",
-    monthly: "bg-yellow-400/15 text-yellow-200",
-    once: "bg-white/10 text-white",
-    "language-js": "bg-amber-400/15 text-amber-200",
-    "language-cpp": "bg-sky-400/15 text-sky-200",
-    "language-python": "bg-emerald-400/15 text-emerald-200",
-    "language-java": "bg-orange-400/15 text-orange-200",
-    "language-ts": "bg-cyan-400/15 text-cyan-200",
-    topic: "bg-fuchsia-400/15 text-fuchsia-200",
-    complexity: "bg-white/10 text-white",
+    easy:    "bg-emerald-500/85 text-white shadow-[0_2px_8px_rgba(52,211,153,0.3)]",
+    medium:  "bg-amber-500/85 text-white shadow-[0_2px_8px_rgba(245,158,11,0.3)]",
+    hard:    "bg-rose-500/85 text-white shadow-[0_2px_8px_rgba(244,63,94,0.3)]",
+    todo:    "bg-white/[0.1] text-white/70",
+    progress: "bg-amber-500/85 text-white shadow-[0_2px_8px_rgba(245,158,11,0.3)]",
+    review:  "bg-rose-500/85 text-white shadow-[0_2px_8px_rgba(244,63,94,0.3)]",
+    completed: "bg-emerald-500/85 text-white shadow-[0_2px_8px_rgba(52,211,153,0.3)]",
+    daily:   "bg-rose-500/85 text-white",
+    weekly:  "bg-amber-500/85 text-white",
+    monthly: "bg-yellow-500/85 text-white",
+    once:    "bg-white/[0.1] text-white/70",
+    "language-js":     "bg-amber-500/85 text-white",
+    "language-cpp":    "bg-sky-500/85 text-white",
+    "language-python": "bg-emerald-500/85 text-white",
+    "language-java":   "bg-orange-500/85 text-white",
+    "language-ts":     "bg-cyan-500/85 text-white",
+    topic:      "bg-fuchsia-500/70 text-white",
+    complexity: "bg-white/[0.1] text-white/70",
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-semibold ${styles[tone]}`}
+      className={`inline-flex items-center rounded-full px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.15em] ${styles[tone]}`}
     >
       {label}
     </span>
@@ -291,7 +291,7 @@ function TrackerTable({
     <div className="overflow-x-auto">
       <table className="min-w-[1980px] table-fixed border-collapse">
         <thead>
-          <tr className="border-b border-border">
+          <tr className="border-b border-border/70 bg-white/[0.02]">
             {trackerColumns.map((column) => (
               <th
                 key={column.key}
@@ -308,7 +308,7 @@ function TrackerTable({
               <tr
                 key={row.slug}
                 onClick={() => onRowSelect(row)}
-                className="cursor-pointer border-b border-border/80 hover:bg-white/5"
+                className="cursor-pointer border-b border-border/70 transition hover:bg-white/[0.035]"
               >
                 <td className="px-3 py-3 align-top">
                   <div className="min-w-0">
@@ -454,7 +454,7 @@ function GroupedTrackerSection({
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
-        <span className="text-xs text-muted">v</span>
+        <span className="text-xs text-muted">+</span>
         <TrackerBadge label={label} tone={tone} />
         <span className="text-sm text-muted">{count}</span>
       </div>
@@ -477,15 +477,15 @@ function TrackerDrawer({
   onChange: (nextEntry: TrackerEntry) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/40">
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/55 backdrop-blur-sm">
       <button
         type="button"
         aria-label="Close tracker editor"
         onClick={onClose}
         className="flex-1 cursor-default"
       />
-      <aside className="relative flex h-full w-full max-w-[420px] flex-col border-l border-border bg-surface">
-        <div className="flex items-start justify-between border-b border-border px-5 py-4">
+      <aside className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.12),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.98)_0%,rgba(29,34,46,0.99)_100%)] shadow-[-30px_0_80px_rgba(0,0,0,0.35)] backdrop-blur-xl relative flex h-full w-full max-w-[440px] flex-col rounded-l-[2rem]">
+        <div className="flex items-start justify-between border-b border-border/70 px-5 py-4">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
               Edit tracker row
@@ -503,14 +503,14 @@ function TrackerDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border bg-background p-2 text-muted hover:text-white"
+            className="border border-white/10 bg-white/[0.04] rounded-xl p-2 text-muted hover:border-white/20 hover:text-white transition"
           >
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <div className="rounded-xl border border-border bg-background p-4">
+          <div className="border border-white/10 bg-[linear-gradient(180deg,rgba(68,74,92,0.72)_0%,rgba(55,61,78,0.76)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] rounded-[1.5rem] p-4">
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
               Problem context
             </p>
@@ -565,7 +565,7 @@ function TrackerDrawer({
                     progress: event.target.value as TrackerProgressStatus,
                   })
                 }
-                className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-white"
+                className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[rgba(36,42,58,0.8)] px-3 text-sm text-foreground outline-none focus:border-white/30"
               >
                 {TRACKER_PROGRESS_ORDER.map((progress) => (
                   <option key={progress} value={progress}>
@@ -587,7 +587,7 @@ function TrackerDrawer({
                     reviewFrequency: event.target.value as TrackerReviewFrequency,
                   })
                 }
-                className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-white"
+                className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[rgba(36,42,58,0.8)] px-3 text-sm text-foreground outline-none focus:border-white/30"
               >
                 {TRACKER_REVIEW_FREQUENCY_ORDER.map((frequency) => (
                   <option key={frequency} value={frequency}>
@@ -616,7 +616,7 @@ function TrackerDrawer({
                     })
                   }
                   placeholder="Minutes"
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
                 />
               </div>
               <div>
@@ -632,7 +632,7 @@ function TrackerDrawer({
                       dateSolved: event.target.value || null,
                     })
                   }
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none focus:border-white"
                 />
               </div>
             </div>
@@ -652,7 +652,7 @@ function TrackerDrawer({
                     })
                   }
                   placeholder="Python, C++, JavaScript..."
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
                 />
               </div>
               <div>
@@ -672,7 +672,7 @@ function TrackerDrawer({
                     })
                   }
                   placeholder="Meta, Google, Amazon"
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
                 />
               </div>
             </div>
@@ -691,24 +691,24 @@ function TrackerDrawer({
                 }
                 rows={6}
                 placeholder="Capture what felt easy, what needs a revisit, or what pattern to recall next time."
-                className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted focus:border-white"
+                className="mt-2 w-full rounded-xl border border-border bg-background/80 px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted focus:border-white"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-border/70 px-5 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-muted hover:text-white"
+            className="app-panel-soft rounded-xl px-4 py-2 text-sm font-medium text-muted hover:text-white"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onSave}
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90"
+            className="rounded-xl bg-[linear-gradient(180deg,#86d39b_0%,#6dbf84_100%)] px-4 py-2 text-sm font-semibold text-[#142018] shadow-[0_8px_20px_rgba(63,118,84,0.3)] hover:brightness-105 transition"
           >
             Save
           </button>
@@ -739,8 +739,8 @@ function CalendarView({
   );
 
   return (
-    <div className="rounded-2xl border border-border bg-surface">
-      <div className="flex flex-col gap-4 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+    <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl rounded-[2rem]">
+      <div className="flex flex-col gap-4 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
             Solved date
@@ -754,28 +754,28 @@ function CalendarView({
           <button
             type="button"
             onClick={onPreviousMonth}
-            className="rounded-lg border border-border bg-background p-2 text-muted hover:text-white"
+            className="app-panel-soft rounded-xl p-2 text-muted hover:text-white"
           >
             <Icon name="chevron-left" className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={onCurrentMonth}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-muted hover:text-white"
+            className="app-panel-soft rounded-xl px-3 py-2 text-sm font-medium text-muted hover:text-white"
           >
             Today
           </button>
           <button
             type="button"
             onClick={onNextMonth}
-            className="rounded-lg border border-border bg-background p-2 text-muted hover:text-white"
+            className="app-panel-soft rounded-xl p-2 text-muted hover:text-white"
           >
             <Icon name="chevron-right" className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-border">
+      <div className="grid grid-cols-7 border-b border-border/70 bg-white/[0.02]">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div
             key={day}
@@ -790,7 +790,7 @@ function CalendarView({
         {calendarDays.map((day) => (
           <div
             key={day.isoDate}
-            className={`min-h-[9rem] border-b border-r border-border px-3 py-3 ${
+            className={`min-h-[9rem] border-b border-r border-border/70 px-3 py-3 ${
               day.inCurrentMonth ? "bg-transparent" : "bg-white/[0.02]"
             }`}
           >
@@ -814,7 +814,7 @@ function CalendarView({
                   key={row.slug}
                   type="button"
                   onClick={() => onRowSelect(row)}
-                  className="block w-full rounded-lg border border-border bg-background px-2 py-2 text-left text-xs text-foreground hover:border-white/30 hover:bg-white/5"
+                  className="app-panel-muted block w-full rounded-xl px-2.5 py-2 text-left text-xs text-foreground hover:border-white/30 hover:bg-white/[0.05]"
                 >
                   <span className="block truncate font-medium">{row.title}</span>
                   <span className="mt-1 inline-flex">
@@ -916,39 +916,36 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
   return (
     <div className="mx-auto max-w-[1680px] px-4 py-4 sm:px-6 lg:px-8">
       <section className="space-y-5">
-        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        {/* Tracker header card */}
+        <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl flex flex-col gap-4 rounded-[2rem] px-5 py-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
-                Tracker
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                 Problem Tracker
               </h1>
-              <p className="mt-1 text-sm text-muted">
-                Track progress, review cadence, and solve history across the full
-                problem set.
+              <p className="mt-1.5 text-sm text-muted">
+                Track progress, review cadence, and solve history across the full problem set.
               </p>
             </div>
-
-            <div className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted">
-              {rows.length} tracked problems
+            <div className="flex shrink-0 flex-col items-end">
+              <span className="text-5xl font-bold tracking-tight text-foreground sm:text-6xl">{rows.length}</span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">Tracked problems</span>
             </div>
           </div>
 
+          {/* View tabs */}
           <div className="flex flex-wrap gap-2">
             {trackerViews.map((view) => {
               const active = activeView === view.key;
-
               return (
                 <button
                   key={view.key}
                   type="button"
                   onClick={() => setActiveView(view.key)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium ${
+                  className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition ${
                     active
-                      ? "border-white/10 bg-white/10 text-white"
-                      : "border-border bg-background text-muted hover:text-white"
+                      ? "border-[#6dbf84]/40 bg-[linear-gradient(180deg,#86d39b_0%,#6dbf84_100%)] text-[#142018] shadow-[0_8px_20px_rgba(63,118,84,0.3)]"
+                      : "border-white/10 bg-white/[0.04] text-muted hover:bg-white/[0.08] hover:text-foreground"
                   }`}
                 >
                   <Icon name={view.icon as Parameters<typeof Icon>[0]["name"]} />
@@ -960,13 +957,13 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
         </div>
 
         {activeView === "main" ? (
-          <div className="rounded-2xl border border-border bg-surface">
+          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl rounded-[2rem] overflow-hidden">
             <TrackerTable rows={rows} onRowSelect={openEditor} />
           </div>
         ) : null}
 
         {activeView === "progress" ? (
-          <div className="space-y-6 rounded-2xl border border-border bg-surface px-4 py-4 sm:px-5">
+          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl space-y-6 rounded-[2rem] px-5 py-5">
             {progressGroups.map((group) => (
               <GroupedTrackerSection
                 key={group.key}
@@ -981,7 +978,7 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
         ) : null}
 
         {activeView === "difficulty" ? (
-          <div className="space-y-6 rounded-2xl border border-border bg-surface px-4 py-4 sm:px-5">
+          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl space-y-6 rounded-[2rem] px-5 py-5">
             {difficultyGroups.map((group) => (
               <GroupedTrackerSection
                 key={group.key}
@@ -1002,7 +999,7 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
         ) : null}
 
         {activeView === "revision" ? (
-          <div className="space-y-6 rounded-2xl border border-border bg-surface px-4 py-4 sm:px-5">
+          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl space-y-6 rounded-[2rem] px-5 py-5">
             {reviewGroups.map((group) => (
               <GroupedTrackerSection
                 key={group.key}

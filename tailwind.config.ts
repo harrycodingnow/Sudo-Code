@@ -9,14 +9,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#1a1a1a",
-        foreground: "#f5f5f5",
-        surface: "#262626",
-        accent: "#f5f5f5",
-        accentForeground: "#18181b",
-        border: "#3a3a3a",
-        borderStrong: "#4a4a4a",
-        muted: "#a1a1aa",
+        background: "#110f0d",
+        foreground: "#f6efe5",
+        surface: "#1d1916",
+        accent: "#f6efe5",
+        accentForeground: "#110f0d",
+        border: "#342d27",
+        borderStrong: "#4a4036",
+        muted: "#b5aa99",
       },
       fontFamily: {
         sans: ["Avenir Next", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
