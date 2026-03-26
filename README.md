@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/banner.png" alt="SudoCode icon" />
+  <img src="./public/banner.png" alt="SudoCode banner" width="80%" />
 </p>
 
 # SudoCode
