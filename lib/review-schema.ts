@@ -8,11 +8,13 @@ export const reviewVerdictSchema = z.enum([
 
 export const reviewModeSchema = z.enum(["standard", "ai_guide"]);
 export const quickHelpModeSchema = z.enum(["question", "hint"]);
-export const guideAnswerVerdictSchema = z.enum([
-  "correct",
-  "partially_correct",
-  "incorrect",
-]);
+export const guideMessageRoleSchema = z.enum(["user", "assistant"]);
+
+export const guideMessageSchema = z.object({
+  id: z.string().min(1),
+  role: guideMessageRoleSchema,
+  content: z.string().trim().min(1).max(1000),
+});
 
 export const reviewSchema = z.object({
   verdict: reviewVerdictSchema,
@@ -43,19 +45,12 @@ export const quickHelpResponseSchema = z.object({
   answer: z.string(),
 });
 
-const guideQuestionSchema = z.string().trim().min(1).max(160);
-const guideAnswerSchema = z.string().trim().min(1).max(500);
+export const guideStartResponseSchema = z.object({
+  message: guideMessageSchema,
+});
 
-export const guideSessionResponseSchema = z.object({
-  currentQuestion: guideQuestionSchema,
-  currentAnswer: guideAnswerSchema.nullable(),
-  verdict: guideAnswerVerdictSchema.nullable(),
-  feedback: z.string().trim().min(1).max(240).nullable(),
-  attemptCount: z.number().int().min(0),
-  revealedAnswer: z.string().trim().min(1).max(240).nullable(),
-  queuedNextQuestion: guideQuestionSchema.nullable(),
-  canAdvance: z.boolean(),
-  completed: z.boolean(),
+export const guideMessageResponseSchema = z.object({
+  message: guideMessageSchema,
 });
 
 const guideRequestBaseSchema = z.object({
@@ -67,31 +62,26 @@ export const guideStartRequestSchema = guideRequestBaseSchema.extend({
   action: z.literal("start"),
 });
 
-export const guideAnswerRequestSchema = guideRequestBaseSchema.extend({
-  action: z.literal("answer"),
-  session: guideSessionResponseSchema,
-  answer: guideAnswerSchema,
-});
-
-export const guideRevealRequestSchema = guideRequestBaseSchema.extend({
-  action: z.literal("reveal"),
-  session: guideSessionResponseSchema,
+export const guideMessageRequestSchema = guideRequestBaseSchema.extend({
+  action: z.literal("message"),
+  messages: z.array(guideMessageSchema).min(1),
 });
 
 export const guideRequestSchema = z.discriminatedUnion("action", [
   guideStartRequestSchema,
-  guideAnswerRequestSchema,
-  guideRevealRequestSchema,
+  guideMessageRequestSchema,
 ]);
 
 export type ReviewVerdict = z.infer<typeof reviewVerdictSchema>;
 export type ReviewMode = z.infer<typeof reviewModeSchema>;
 export type QuickHelpMode = z.infer<typeof quickHelpModeSchema>;
-export type GuideAnswerVerdict = z.infer<typeof guideAnswerVerdictSchema>;
-export type FeedbackPanelMode = ReviewMode | "quick_question";
+export type GuideMessageRole = z.infer<typeof guideMessageRoleSchema>;
+export type GuideMessage = z.infer<typeof guideMessageSchema>;
+export type FeedbackPanelMode = ReviewMode;
 export type Review = z.infer<typeof reviewSchema>;
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>;
 export type QuickHelpRequest = z.infer<typeof quickHelpRequestSchema>;
 export type QuickHelpResponse = z.infer<typeof quickHelpResponseSchema>;
-export type GuideSessionResponse = z.infer<typeof guideSessionResponseSchema>;
+export type GuideStartResponse = z.infer<typeof guideStartResponseSchema>;
+export type GuideMessageResponse = z.infer<typeof guideMessageResponseSchema>;
 export type GuideRequest = z.infer<typeof guideRequestSchema>;

@@ -13,6 +13,7 @@ export type Problem = {
   difficulty: Difficulty;
   category: string;
   description: string;
+  initialGuideQuestion?: string;
   examples: ProblemExample[];
   constraints: string[];
   idealPseudocode: string;

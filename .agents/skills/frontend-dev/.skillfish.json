@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "frontend-dev",
+  "owner": "shabaraba",
+  "repo": "shabaraba-cc-plugins",
+  "path": "packages/claude-org/skills/frontend-dev",
+  "branch": "main",
+  "sha": "c0734f58b5fd0e59dc56a163e61b0a24b55f6610",
+  "source": "manual"
+}

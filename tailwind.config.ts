@@ -9,18 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#110f0d",
-        foreground: "#f6efe5",
-        surface: "#1d1916",
-        accent: "#f6efe5",
-        accentForeground: "#110f0d",
-        border: "#342d27",
-        borderStrong: "#4a4036",
-        muted: "#b5aa99",
+        background: "#081215",
+        foreground: "#F1F7F5",
+        surface: "#0F1D20",
+        accent: "#22C7B8",
+        accentForeground: "#041715",
+        border: "rgba(198,224,220,0.12)",
+        borderStrong: "rgba(198,224,220,0.22)",
+        muted: "#8FA4A6",
       },
       fontFamily: {
-        sans: ["Avenir Next", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
-        display: ["Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Georgia", "serif"],
+        sans: ["Inter", "Avenir Next", "Segoe UI", "system-ui", "sans-serif"],
+        display: ["Inter", "Avenir Next", "Segoe UI", "system-ui", "sans-serif"],
         mono: ["IBM Plex Mono", "SFMono-Regular", "Consolas", "Liberation Mono", "monospace"],
       },
       boxShadow: {

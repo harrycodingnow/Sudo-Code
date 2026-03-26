@@ -1,11 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { HomeProgressDashboard } from "@/components/home-progress-dashboard";
 import { ProblemCard } from "@/components/problem-card";
-import { SiteHeader } from "@/components/site-header";
 import {
   buildTrackerHomeSummary,
   buildTrackerRows,
@@ -19,8 +16,27 @@ type ProblemCatalogProps = {
   problems: ProblemSummary[];
 };
 
-const panelSurface =
-  "border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl";
+function SummaryStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="linear-card rounded-[1.4rem] px-4 py-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+        {value}
+      </p>
+      <p className="mt-1 text-sm leading-6 text-muted">{detail}</p>
+    </div>
+  );
+}
 
 export function ProblemCatalog({ problems }: ProblemCatalogProps) {
   const [entries, setEntries] = useState<Record<string, TrackerEntry>>(() =>
@@ -38,50 +54,53 @@ export function ProblemCatalog({ problems }: ProblemCatalogProps) {
   const summary = useMemo(() => buildTrackerHomeSummary(rows), [rows]);
 
   return (
-    <div className="min-h-screen text-foreground">
-      <SiteHeader />
-
-      <div className="mx-auto max-w-[1440px] space-y-5 px-4 pb-10 pt-5 sm:px-6 lg:px-8">
-        {/* Stats overview */}
-        <HomeProgressDashboard summary={summary} />
-
-        {/* Problem list */}
-        <section id="problems" className="min-w-0">
-          <div className={`${panelSurface} overflow-hidden rounded-[2rem]`}>
-            {/* Header */}
-            <div className="flex items-center justify-between gap-4 border-b border-white/[0.07] px-6 py-4 sm:px-7">
-              <div className="flex items-center gap-3">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-                  Problems
-                </p>
-                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 font-mono text-[11px] text-muted">
-                  {rows.length}
-                </span>
-              </div>
-              <Link
-                href="/tracker"
-                className="text-[13px] font-medium text-muted transition hover:text-foreground"
-              >
-                Open tracker →
-              </Link>
-            </div>
-
-            {/* Column headers */}
-            <div className="hidden grid-cols-[minmax(0,1fr)_120px_150px] gap-3 border-b border-white/[0.06] bg-white/[0.015] px-7 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted lg:grid">
-              <span>Problem</span>
-              <span>Difficulty</span>
-              <span>Status</span>
-            </div>
-
-            {/* Rows */}
-            <div className="divide-y divide-white/[0.05]">
-              {rows.map((problem) => (
-                <ProblemCard key={problem.id} problem={problem} />
-              ))}
-            </div>
-          </div>
-        </section>
+    <section className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <SummaryStat
+          label="Progress"
+          value={`${summary.solved}/${summary.total}`}
+          detail="Problems marked completed out of the full practice set."
+        />
+        <SummaryStat
+          label="In Progress"
+          value={String(summary.attempting)}
+          detail="Active problems that still need another pass."
+        />
+        <SummaryStat
+          label="Remaining"
+          value={String(Math.max(summary.total - summary.solved, 0))}
+          detail="Problems still open for a first solve or revisit."
+        />
       </div>
-    </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+            Problems
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
+            Practice queue
+          </h1>
+        </div>
+
+        <p className="max-w-xl text-sm leading-6 text-muted">
+          Use the tracker state to decide whether you want a clean attempt, a
+          review session, or a harder prompt.
+        </p>
+      </div>
+
+      <div className="linear-shell overflow-hidden rounded-[2rem]">
+        <div className="hidden grid-cols-[minmax(0,1fr)_160px] gap-4 border-b border-white/6 px-6 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-muted lg:grid">
+          <span>Problem</span>
+          <span className="text-right">Next step</span>
+        </div>
+
+        <div>
+          {rows.map((problem) => (
+            <ProblemCard key={problem.id} problem={problem} />
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

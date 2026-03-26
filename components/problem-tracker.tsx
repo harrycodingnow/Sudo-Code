@@ -200,24 +200,24 @@ function TrackerBadge({
     | "complexity";
 }) {
   const styles: Record<typeof tone, string> = {
-    easy:    "bg-emerald-500/85 text-white shadow-[0_2px_8px_rgba(52,211,153,0.3)]",
-    medium:  "bg-amber-500/85 text-white shadow-[0_2px_8px_rgba(245,158,11,0.3)]",
-    hard:    "bg-rose-500/85 text-white shadow-[0_2px_8px_rgba(244,63,94,0.3)]",
-    todo:    "bg-white/[0.1] text-white/70",
-    progress: "bg-amber-500/85 text-white shadow-[0_2px_8px_rgba(245,158,11,0.3)]",
-    review:  "bg-rose-500/85 text-white shadow-[0_2px_8px_rgba(244,63,94,0.3)]",
-    completed: "bg-emerald-500/85 text-white shadow-[0_2px_8px_rgba(52,211,153,0.3)]",
-    daily:   "bg-rose-500/85 text-white",
-    weekly:  "bg-amber-500/85 text-white",
-    monthly: "bg-yellow-500/85 text-white",
-    once:    "bg-white/[0.1] text-white/70",
-    "language-js":     "bg-amber-500/85 text-white",
-    "language-cpp":    "bg-sky-500/85 text-white",
-    "language-python": "bg-emerald-500/85 text-white",
-    "language-java":   "bg-orange-500/85 text-white",
-    "language-ts":     "bg-cyan-500/85 text-white",
-    topic:      "bg-fuchsia-500/70 text-white",
-    complexity: "bg-white/[0.1] text-white/70",
+    easy:    "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    medium:  "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    hard:    "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+    todo:    "bg-white/[0.03] text-muted border border-white/10",
+    progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    review:  "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+    completed: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    daily:   "linear-pill text-rose-300",
+    weekly:  "linear-pill text-amber-300",
+    monthly: "linear-pill text-emerald-300",
+    once:    "linear-pill text-muted",
+    "language-js":     "linear-pill text-yellow-300",
+    "language-cpp":    "linear-pill text-blue-300",
+    "language-python": "linear-pill text-green-300",
+    "language-java":   "linear-pill text-orange-300",
+    "language-ts":     "linear-pill text-blue-400",
+    topic:      "linear-pill text-foreground",
+    complexity: "linear-pill text-foreground",
   };
 
   return (
@@ -484,7 +484,7 @@ function TrackerDrawer({
         onClick={onClose}
         className="flex-1 cursor-default"
       />
-      <aside className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.12),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.98)_0%,rgba(29,34,46,0.99)_100%)] shadow-[-30px_0_80px_rgba(0,0,0,0.35)] backdrop-blur-xl relative flex h-full w-full max-w-[440px] flex-col rounded-l-[2rem]">
+      <aside className="linear-shell relative flex h-full w-full max-w-[440px] flex-col rounded-l-[2rem] rounded-r-none border-y-0 border-r-0 border-l border-white/[0.06] shadow-[-30px_0_80px_rgba(0,0,0,0.46)]">
         <div className="flex items-start justify-between border-b border-border/70 px-5 py-4">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
@@ -503,14 +503,14 @@ function TrackerDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="border border-white/10 bg-white/[0.04] rounded-xl p-2 text-muted hover:border-white/20 hover:text-white transition"
+            className="app-panel-soft rounded-xl p-2 text-muted hover:border-white/20 hover:text-white transition"
           >
             <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          <div className="border border-white/10 bg-[linear-gradient(180deg,rgba(68,74,92,0.72)_0%,rgba(55,61,78,0.76)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] rounded-[1.5rem] p-4">
+          <div className="linear-card rounded-[1.5rem] p-4 text-sm">
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
               Problem context
             </p>
@@ -565,7 +565,7 @@ function TrackerDrawer({
                     progress: event.target.value as TrackerProgressStatus,
                   })
                 }
-                className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[rgba(36,42,58,0.8)] px-3 text-sm text-foreground outline-none focus:border-white/30"
+                className="mt-2 h-11 w-full rounded-xl linear-input-surface px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
               >
                 {TRACKER_PROGRESS_ORDER.map((progress) => (
                   <option key={progress} value={progress}>
@@ -587,7 +587,7 @@ function TrackerDrawer({
                     reviewFrequency: event.target.value as TrackerReviewFrequency,
                   })
                 }
-                className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[rgba(36,42,58,0.8)] px-3 text-sm text-foreground outline-none focus:border-white/30"
+                className="mt-2 h-11 w-full rounded-xl linear-input-surface px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
               >
                 {TRACKER_REVIEW_FREQUENCY_ORDER.map((frequency) => (
                   <option key={frequency} value={frequency}>
@@ -616,7 +616,7 @@ function TrackerDrawer({
                     })
                   }
                   placeholder="Minutes"
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl linear-input-surface px-3 text-sm text-foreground outline-none placeholder:text-muted focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
                 />
               </div>
               <div>
@@ -632,7 +632,7 @@ function TrackerDrawer({
                       dateSolved: event.target.value || null,
                     })
                   }
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl linear-input-surface px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
                 />
               </div>
             </div>
@@ -652,7 +652,7 @@ function TrackerDrawer({
                     })
                   }
                   placeholder="Python, C++, JavaScript..."
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl linear-input-surface px-3 text-sm text-foreground outline-none placeholder:text-muted focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
                 />
               </div>
               <div>
@@ -672,7 +672,7 @@ function TrackerDrawer({
                     })
                   }
                   placeholder="Meta, Google, Amazon"
-                  className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none placeholder:text-muted focus:border-white"
+                  className="mt-2 h-11 w-full rounded-xl linear-input-surface px-3 text-sm text-foreground outline-none placeholder:text-muted focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
                 />
               </div>
             </div>
@@ -691,7 +691,7 @@ function TrackerDrawer({
                 }
                 rows={6}
                 placeholder="Capture what felt easy, what needs a revisit, or what pattern to recall next time."
-                className="mt-2 w-full rounded-xl border border-border bg-background/80 px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted focus:border-white"
+                className="mt-2 w-full rounded-xl linear-input-surface px-3 py-3 text-sm leading-6 text-foreground outline-none placeholder:text-muted focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
               />
             </div>
           </div>
@@ -708,7 +708,7 @@ function TrackerDrawer({
           <button
             type="button"
             onClick={onSave}
-            className="rounded-xl bg-[linear-gradient(180deg,#86d39b_0%,#6dbf84_100%)] px-4 py-2 text-sm font-semibold text-[#142018] shadow-[0_8px_20px_rgba(63,118,84,0.3)] hover:brightness-105 transition"
+            className="linear-accent-button rounded-xl px-5 py-2 text-sm font-semibold transition"
           >
             Save
           </button>
@@ -739,7 +739,7 @@ function CalendarView({
   );
 
   return (
-    <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl rounded-[2rem]">
+    <div className="linear-shell overflow-hidden rounded-[2rem]">
       <div className="flex flex-col gap-4 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted">
@@ -917,10 +917,10 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
     <div className="mx-auto max-w-[1680px] px-4 py-4 sm:px-6 lg:px-8">
       <section className="space-y-5">
         {/* Tracker header card */}
-        <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl flex flex-col gap-4 rounded-[2rem] px-5 py-5">
+        <div className="linear-shell flex flex-col gap-4 rounded-[2rem] px-5 py-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+              <h1 className="linear-heading text-3xl font-semibold tracking-tight sm:text-4xl">
                 Problem Tracker
               </h1>
               <p className="mt-1.5 text-sm text-muted">
@@ -944,8 +944,8 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
                   onClick={() => setActiveView(view.key)}
                   className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition ${
                     active
-                      ? "border-[#6dbf84]/40 bg-[linear-gradient(180deg,#86d39b_0%,#6dbf84_100%)] text-[#142018] shadow-[0_8px_20px_rgba(63,118,84,0.3)]"
-                      : "border-white/10 bg-white/[0.04] text-muted hover:bg-white/[0.08] hover:text-foreground"
+                      ? "linear-tab-active border-transparent"
+                      : "linear-pill text-muted hover:text-foreground"
                   }`}
                 >
                   <Icon name={view.icon as Parameters<typeof Icon>[0]["name"]} />
@@ -957,13 +957,13 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
         </div>
 
         {activeView === "main" ? (
-          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl rounded-[2rem] overflow-hidden">
+          <div className="linear-shell rounded-[2rem] overflow-hidden">
             <TrackerTable rows={rows} onRowSelect={openEditor} />
           </div>
         ) : null}
 
         {activeView === "progress" ? (
-          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl space-y-6 rounded-[2rem] px-5 py-5">
+          <div className="linear-shell space-y-6 rounded-[2rem] px-5 py-5">
             {progressGroups.map((group) => (
               <GroupedTrackerSection
                 key={group.key}
@@ -978,7 +978,7 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
         ) : null}
 
         {activeView === "difficulty" ? (
-          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl space-y-6 rounded-[2rem] px-5 py-5">
+          <div className="linear-shell space-y-6 rounded-[2rem] px-5 py-5">
             {difficultyGroups.map((group) => (
               <GroupedTrackerSection
                 key={group.key}
@@ -999,7 +999,7 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
         ) : null}
 
         {activeView === "revision" ? (
-          <div className="border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl space-y-6 rounded-[2rem] px-5 py-5">
+          <div className="linear-shell space-y-6 rounded-[2rem] px-5 py-5">
             {reviewGroups.map((group) => (
               <GroupedTrackerSection
                 key={group.key}

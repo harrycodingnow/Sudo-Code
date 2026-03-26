@@ -41,7 +41,7 @@ export default async function ProblemPage({ params }: ProblemPageProps) {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col gap-3 px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5 xl:h-screen xl:overflow-hidden xl:px-6 xl:py-4">
+    <main className="mx-auto flex h-[100svh] w-full max-w-[1680px] flex-col gap-3 overflow-hidden px-4 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5 xl:px-6 xl:py-4">
       <ProblemWorkspace problem={problem} />
     </main>
   );

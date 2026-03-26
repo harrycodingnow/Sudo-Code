@@ -1,3 +1,4 @@
+import { SpotlightCard } from "@/components/spotlight-card";
 import type { Difficulty } from "@/types/problem";
 import type { TrackerHomeSummary } from "@/types/tracker";
 
@@ -5,26 +6,28 @@ type HomeProgressDashboardProps = {
   summary: TrackerHomeSummary;
 };
 
-const panelSurface =
-  "border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl";
-
-const cardSurface =
-  "border border-white/10 bg-[linear-gradient(180deg,rgba(68,74,92,0.72)_0%,rgba(55,61,78,0.76)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
-
-const ringRadius = 90;
-const ringCircumference = 2 * Math.PI * ringRadius;
-
 type DifficultyMeta = {
-  label: string;
-  dot: string;
-  bar: string;
-  glow: string;
+  accentClassName: string;
+  labelClassName: string;
+  trackClassName: string;
 };
 
 const difficultyMeta: Record<Difficulty, DifficultyMeta> = {
-  Easy:   { label: "text-emerald-300", dot: "bg-emerald-400", bar: "bg-emerald-400", glow: "shadow-[0_0_8px_rgba(52,211,153,0.4)]" },
-  Medium: { label: "text-amber-300",   dot: "bg-amber-400",   bar: "bg-amber-400",   glow: "shadow-[0_0_8px_rgba(251,191,36,0.4)]"  },
-  Hard:   { label: "text-rose-300",    dot: "bg-rose-400",    bar: "bg-rose-400",    glow: "shadow-[0_0_8px_rgba(251,113,133,0.4)]"  },
+  Easy: {
+    accentClassName: "bg-emerald-300",
+    labelClassName: "text-emerald-300",
+    trackClassName: "bg-emerald-400",
+  },
+  Medium: {
+    accentClassName: "bg-amber-300",
+    labelClassName: "text-amber-300",
+    trackClassName: "bg-amber-400",
+  },
+  Hard: {
+    accentClassName: "bg-rose-300",
+    labelClassName: "text-rose-300",
+    trackClassName: "bg-rose-400",
+  },
 };
 
 function DifficultyStatCard({
@@ -36,119 +39,122 @@ function DifficultyStatCard({
   solved: number;
   total: number;
 }) {
-  const m = difficultyMeta[difficulty];
-  const pct = total === 0 ? 0 : Math.round((solved / total) * 100);
+  const meta = difficultyMeta[difficulty];
+  const percentage = total === 0 ? 0 : Math.round((solved / total) * 100);
 
   return (
-    <div className={`${cardSurface} rounded-[1.5rem] px-5 py-4`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${m.dot} ${m.glow}`} />
-          <p className={`text-sm font-semibold ${m.label}`}>{difficulty}</p>
+    <SpotlightCard className="linear-card rounded-[1.5rem] p-5">
+      <div className="relative z-10 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${meta.accentClassName}`} />
+            <p className={`text-sm font-semibold ${meta.labelClassName}`}>
+              {difficulty}
+            </p>
+          </div>
+          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+            {percentage}%
+          </span>
         </div>
-        <span className="font-mono text-[11px] tracking-[0.1em] text-muted">{pct}%</span>
+
+        <div className="space-y-2">
+          <p className="text-3xl font-semibold tracking-tight text-foreground">
+            {solved}
+            <span className="ml-1 text-lg text-muted">/ {total}</span>
+          </p>
+          <div className="h-2 rounded-full bg-white/6">
+            <div
+              className={`h-full rounded-full ${meta.trackClassName}`}
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+        </div>
       </div>
-      <p className="mt-2.5 text-2xl font-semibold tracking-tight text-foreground">
-        {solved}<span className="text-lg text-muted">/{total}</span>
+    </SpotlightCard>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="linear-card rounded-[1.25rem] px-4 py-3">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+        {label}
       </p>
-      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-        <div
-          className={`h-full rounded-full transition-all duration-700 ${m.bar} ${m.glow}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+        {value}
+      </p>
     </div>
   );
 }
 
-export function HomeProgressDashboard({ summary }: HomeProgressDashboardProps) {
-  const completionRatio = summary.total === 0 ? 0 : summary.solved / summary.total;
-  const dashOffset = ringCircumference * (1 - completionRatio);
-  const pctLabel = Math.round(completionRatio * 100);
+export function HomeProgressDashboard({
+  summary,
+}: HomeProgressDashboardProps) {
+  const completionRate =
+    summary.total === 0 ? 0 : Math.round((summary.solved / summary.total) * 100);
 
   return (
-    <section>
-      {/* Two-column stats area */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+      <SpotlightCard className="linear-shell rounded-[2rem] p-6">
+        <div className="relative z-10 grid gap-6 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-center">
+          <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-[1.75rem] border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="text-center">
+              <p className="text-3xl font-semibold tracking-tight text-foreground">
+                {completionRate}%
+              </p>
+              <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+                Covered
+              </p>
+            </div>
+          </div>
 
-        {/* Ring panel */}
-        <div className={`${panelSurface} overflow-hidden rounded-[2rem] p-5`}>
-          <div className="relative flex min-h-[14rem] items-center justify-start gap-8 overflow-hidden rounded-[1.5rem] border border-white/8 bg-[linear-gradient(135deg,rgba(51,58,78,0.6)_0%,rgba(35,40,54,0.7)_100%)] px-8 py-6">
-            {/* Decorative radial */}
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_50%,rgba(88,142,118,0.18),transparent_55%)]" />
-
-            {/* Ring SVG */}
-            <div className="relative shrink-0">
-              <svg
-                viewBox="0 0 220 220"
-                className="h-[9rem] w-[9rem]"
-                aria-hidden="true"
-              >
-                {/* Glow filter */}
-                <defs>
-                  <filter id="arcGlow">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                  </filter>
-                  <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#86d39b" />
-                    <stop offset="100%" stopColor="#6dbf84" />
-                  </linearGradient>
-                </defs>
-                {/* Track */}
-                <circle cx="110" cy="110" r={ringRadius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
-                {/* Arc */}
-                <circle
-                  cx="110" cy="110" r={ringRadius}
-                  fill="none"
-                  stroke="url(#arcGrad)"
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={dashOffset}
-                  transform="rotate(-90 110 110)"
-                  filter="url(#arcGlow)"
-                />
-              </svg>
-              {/* Center label */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[1.6rem] font-bold tracking-tight text-foreground">{pctLabel}<span className="text-base text-muted">%</span></span>
-              </div>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+                Progress snapshot
+              </p>
+              <h2 className="linear-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+                Keep the practice loop visible.
+              </h2>
+              <p className="max-w-2xl text-sm leading-7 text-muted sm:text-base">
+                The tracker is most useful when it shows what is solved, what is
+                active, and where your next revision should happen.
+              </p>
             </div>
 
-            {/* Stats text */}
-            <div className="relative min-w-0">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-                Practice coverage
-              </p>
-              <p className="mt-2 text-5xl font-bold tracking-tight text-foreground">
-                {summary.solved}
-                <span className="text-2xl font-semibold text-muted">/{summary.total}</span>
-              </p>
-              <div className="mt-2 flex items-center gap-1.5">
-                <span className="text-emerald-400 text-sm">✓</span>
-                <span className="text-sm font-medium text-foreground">Solved</span>
-              </div>
-              {summary.attempting > 0 && (
-                <p className="mt-1 text-sm text-muted">
-                  {summary.attempting} in progress
-                </p>
-              )}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SummaryMetric
+                label="Solved"
+                value={`${summary.solved} / ${summary.total}`}
+              />
+              <SummaryMetric
+                label="In Progress"
+                value={String(summary.attempting)}
+              />
+              <SummaryMetric
+                label="Remaining"
+                value={String(Math.max(summary.total - summary.solved, 0))}
+              />
             </div>
           </div>
         </div>
+      </SpotlightCard>
 
-        {/* Difficulty cards */}
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-          {summary.byDifficulty.map((ds) => (
-            <DifficultyStatCard
-              key={ds.difficulty}
-              difficulty={ds.difficulty}
-              solved={ds.solved}
-              total={ds.total}
-            />
-          ))}
-        </div>
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-1">
+        {summary.byDifficulty.map((entry) => (
+          <DifficultyStatCard
+            key={entry.difficulty}
+            difficulty={entry.difficulty}
+            solved={entry.solved}
+            total={entry.total}
+          />
+        ))}
       </div>
     </section>
   );

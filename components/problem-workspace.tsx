@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -13,9 +14,12 @@ import {
 import { DifficultyBadge } from "@/components/difficulty-badge";
 import { FeedbackPanel } from "@/components/feedback-panel";
 import { ProblemPane } from "@/components/problem-pane";
+import { SpotlightCard } from "@/components/spotlight-card";
 import type {
   FeedbackPanelMode,
-  GuideSessionResponse,
+  GuideMessage,
+  GuideMessageResponse,
+  GuideStartResponse,
   Review,
 } from "@/lib/review-schema";
 import type { Problem } from "@/types/problem";
@@ -24,8 +28,13 @@ type ProblemWorkspaceProps = {
   problem: Problem;
 };
 
-type SeedGuideOptions = {
-  clearSession: boolean;
+type StoredGuideState = {
+  draftSnapshot: string | null;
+  messages: GuideMessage[];
+};
+
+type GuideSeedOptions = {
+  replaceTranscript: boolean;
 };
 
 function WorkspaceIcon({
@@ -70,7 +79,7 @@ function WorkspaceIcon({
   }
 }
 
-async function requestGuideSeed(problemSlug: string, draft: string) {
+async function requestGuideStart(problemSlug: string, draft: string) {
   const response = await fetch("/api/review/guide", {
     method: "POST",
     headers: {
@@ -84,160 +93,228 @@ async function requestGuideSeed(problemSlug: string, draft: string) {
   });
 
   const data = (await response.json()) as {
-    session?: GuideSessionResponse;
+    message?: GuideStartResponse["message"];
     error?: string;
   };
 
-  if (!response.ok || !data.session) {
-    throw new Error(data.error || "The guide could not start a question flow.");
+  if (!response.ok || !data.message) {
+    throw new Error(data.error || "The guide could not start a chat.");
   }
 
-  return data.session;
+  return data.message;
 }
 
-const workspacePanelSurfaceClass =
-  "border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(88,142,118,0.18),transparent_42%),linear-gradient(180deg,rgba(44,50,64,0.96)_0%,rgba(29,34,46,0.98)_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl";
+async function requestGuideMessage(
+  problemSlug: string,
+  draft: string,
+  messages: GuideMessage[],
+) {
+  const response = await fetch("/api/review/guide", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "message",
+      problemSlug,
+      pseudocode: draft,
+      messages,
+    }),
+  });
 
-const workspaceCardSurfaceClass =
-  "border border-white/10 bg-[linear-gradient(180deg,rgba(68,74,92,0.72)_0%,rgba(55,61,78,0.76)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
+  const data = (await response.json()) as {
+    message?: GuideMessageResponse["message"];
+    error?: string;
+  };
 
-const workspaceAccentButtonClass =
-  "bg-[linear-gradient(180deg,#86d39b_0%,#6dbf84_100%)] text-[#142018] shadow-[0_14px_28px_rgba(63,118,84,0.3)]";
+  if (!response.ok || !data.message) {
+    throw new Error(data.error || "The guide could not reply right now.");
+  }
+
+  return data.message;
+}
+
+function readStoredGuideState(storageKey: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<StoredGuideState>;
+    if (!Array.isArray(parsed.messages)) {
+      return null;
+    }
+
+    const messages = parsed.messages
+      .map((message) => {
+        if (
+          !message ||
+          typeof message !== "object" ||
+          typeof message.id !== "string" ||
+          (message.role !== "assistant" && message.role !== "user") ||
+          typeof message.content !== "string"
+        ) {
+          return null;
+        }
+
+        return {
+          id: message.id,
+          role: message.role,
+          content: message.content,
+        } satisfies GuideMessage;
+      })
+      .filter((message): message is GuideMessage => Boolean(message));
+
+    if (!messages.length) {
+      return null;
+    }
+
+    return {
+      draftSnapshot:
+        typeof parsed.draftSnapshot === "string" ? parsed.draftSnapshot : null,
+      messages,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const workspacePanelSurfaceClass = "linear-shell";
+const workspaceAccentButtonClass = "linear-accent-button";
 
 export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   const storageKey = useMemo(
     () => `sudocode:draft:${problem.slug}`,
     [problem.slug],
   );
+  const guideStorageKey = useMemo(
+    () => `sudocode:guide:${problem.slug}`,
+    [problem.slug],
+  );
   const lineNumberRef = useRef<HTMLDivElement>(null);
-  const guideSeedRequestIdRef = useRef(0);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const guideConversationVersionRef = useRef(0);
   const [pseudocode, setPseudocode] = useState("");
   const [draftReady, setDraftReady] = useState(false);
   const [feedback, setFeedback] = useState<Review | null>(null);
-  const [guideSession, setGuideSession] = useState<GuideSessionResponse | null>(
-    null,
-  );
+  const [guideMessages, setGuideMessages] = useState<GuideMessage[]>([]);
   const [guideDraftSnapshot, setGuideDraftSnapshot] = useState<string | null>(
     null,
   );
+  const [guideStateReady, setGuideStateReady] = useState(false);
   const [panelMode, setPanelMode] = useState<FeedbackPanelMode>("ai_guide");
   const [standardError, setStandardError] = useState<string | null>(null);
-  const [guideSeedError, setGuideSeedError] = useState<string | null>(null);
-  const [guideActionError, setGuideActionError] = useState<string | null>(null);
+  const [guideLoadError, setGuideLoadError] = useState<string | null>(null);
+  const [guideSendError, setGuideSendError] = useState<string | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
-  const [guideSeedLoading, setGuideSeedLoading] = useState(false);
-  const [guideActionLoading, setGuideActionLoading] = useState(false);
+  const [guideStartLoading, setGuideStartLoading] = useState(false);
+  const [guideSendLoading, setGuideSendLoading] = useState(false);
   const [feedbackResetSignal, setFeedbackResetSignal] = useState(0);
-  const lineCount = useMemo(
-    () => Math.max(12, pseudocode.split("\n").length),
+  const [editorViewportLineCount, setEditorViewportLineCount] = useState(12);
+  const contentLineCount = useMemo(
+    () => pseudocode.split("\n").length,
     [pseudocode],
+  );
+  const lineCount = useMemo(
+    () => Math.max(editorViewportLineCount, contentLineCount),
+    [contentLineCount, editorViewportLineCount],
   );
   const lineNumbers = useMemo(
     () => Array.from({ length: lineCount }, (_, index) => index + 1),
     [lineCount],
   );
   const guideIsStale = Boolean(
-    guideSession &&
+    guideStateReady &&
       guideDraftSnapshot !== null &&
-      guideDraftSnapshot !== pseudocode,
+      guideDraftSnapshot !== pseudocode &&
+      guideMessages.length > 0,
   );
 
-  async function seedGuideSession(
-    draft: string,
-    { clearSession }: SeedGuideOptions,
-  ) {
-    const requestId = guideSeedRequestIdRef.current + 1;
-    guideSeedRequestIdRef.current = requestId;
+  const startGuideConversation = useCallback(
+    async (
+      draft: string,
+      { replaceTranscript }: GuideSeedOptions,
+    ) => {
+      const requestVersion = ++guideConversationVersionRef.current;
+      setGuideStartLoading(true);
+      setGuideLoadError(null);
+      setGuideSendError(null);
 
-    setGuideSeedLoading(true);
-    setGuideSeedError(null);
-
-    if (clearSession) {
-      setGuideSession(null);
-      setGuideDraftSnapshot(null);
-    }
-
-    try {
-      const session = await requestGuideSeed(problem.slug, draft);
-
-      if (requestId !== guideSeedRequestIdRef.current) {
-        return;
-      }
-
-      setGuideSession(session);
-      setGuideDraftSnapshot(draft);
-    } catch (guideSeedRequestError) {
-      if (requestId !== guideSeedRequestIdRef.current) {
-        return;
-      }
-
-      if (clearSession) {
-        setGuideSession(null);
+      if (replaceTranscript) {
+        setGuideMessages([]);
         setGuideDraftSnapshot(null);
+        setGuideStateReady(false);
       }
 
-      setGuideSeedError(
-        guideSeedRequestError instanceof Error
-          ? guideSeedRequestError.message
-          : "Something went wrong while starting the guide.",
-      );
-    } finally {
-      if (requestId === guideSeedRequestIdRef.current) {
-        setGuideSeedLoading(false);
+      try {
+        const message = await requestGuideStart(problem.slug, draft);
+
+        if (requestVersion !== guideConversationVersionRef.current) {
+          return;
+        }
+
+        setGuideMessages([message]);
+        setGuideDraftSnapshot(draft);
+        setGuideStateReady(true);
+      } catch (guideStartRequestError) {
+        if (requestVersion !== guideConversationVersionRef.current) {
+          return;
+        }
+
+        setGuideLoadError(
+          guideStartRequestError instanceof Error
+            ? guideStartRequestError.message
+            : "Something went wrong while starting the guide.",
+        );
+      } finally {
+        if (requestVersion === guideConversationVersionRef.current) {
+          setGuideStartLoading(false);
+        }
       }
-    }
-  }
+    },
+    [problem.slug],
+  );
 
   useEffect(() => {
     const savedDraft = window.localStorage.getItem(storageKey);
     const initialDraft =
       savedDraft && savedDraft !== problem.starterPseudocode ? savedDraft : "";
-    const requestId = guideSeedRequestIdRef.current + 1;
+    const savedGuideState = readStoredGuideState(guideStorageKey);
 
-    guideSeedRequestIdRef.current = requestId;
+    guideConversationVersionRef.current += 1;
 
     setPseudocode(initialDraft);
     setDraftReady(true);
     setFeedback(null);
     setPanelMode("ai_guide");
     setStandardError(null);
-    setGuideSeedError(null);
-    setGuideActionError(null);
+    setGuideLoadError(null);
+    setGuideSendError(null);
     setReviewLoading(false);
-    setGuideActionLoading(false);
-    setGuideSeedLoading(true);
-    setGuideSession(null);
-    setGuideDraftSnapshot(null);
+    setGuideSendLoading(false);
+    setGuideStartLoading(false);
+    setFeedbackResetSignal(0);
 
-    async function loadInitialGuideQuestion() {
-      try {
-        const session = await requestGuideSeed(problem.slug, initialDraft);
-
-        if (requestId !== guideSeedRequestIdRef.current) {
-          return;
-        }
-
-        setGuideSession(session);
-        setGuideDraftSnapshot(initialDraft);
-      } catch (guideSeedRequestError) {
-        if (requestId !== guideSeedRequestIdRef.current) {
-          return;
-        }
-
-        setGuideSeedError(
-          guideSeedRequestError instanceof Error
-            ? guideSeedRequestError.message
-            : "Something went wrong while starting the guide.",
-        );
-      } finally {
-        if (requestId === guideSeedRequestIdRef.current) {
-          setGuideSeedLoading(false);
-        }
-      }
+    if (savedGuideState) {
+      setGuideMessages(savedGuideState.messages);
+      setGuideDraftSnapshot(savedGuideState.draftSnapshot ?? initialDraft);
+      setGuideStateReady(true);
+      return;
     }
 
-    void loadInitialGuideQuestion();
-  }, [problem.slug, problem.starterPseudocode, storageKey]);
+    void startGuideConversation(initialDraft, { replaceTranscript: true });
+  }, [
+    problem.slug,
+    problem.starterPseudocode,
+    storageKey,
+    guideStorageKey,
+    startGuideConversation,
+  ]);
 
   useEffect(() => {
     if (!draftReady) {
@@ -246,6 +323,62 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
 
     window.localStorage.setItem(storageKey, pseudocode);
   }, [draftReady, pseudocode, storageKey]);
+
+  useEffect(() => {
+    if (!guideStateReady) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      guideStorageKey,
+      JSON.stringify({
+        draftSnapshot: guideDraftSnapshot,
+        messages: guideMessages,
+      }),
+    );
+  }, [guideDraftSnapshot, guideMessages, guideStateReady, guideStorageKey]);
+
+  useEffect(() => {
+    const textarea = editorRef.current;
+    if (!textarea) {
+      return;
+    }
+    const editorElement = textarea;
+
+    function updateEditorViewportLineCount() {
+      const computedStyle = window.getComputedStyle(editorElement);
+      const lineHeight = Number.parseFloat(computedStyle.lineHeight);
+
+      if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+        return;
+      }
+
+      const verticalPadding =
+        Number.parseFloat(computedStyle.paddingTop) +
+        Number.parseFloat(computedStyle.paddingBottom);
+      const visibleHeight = Math.max(
+        editorElement.clientHeight - verticalPadding,
+        lineHeight,
+      );
+      const nextLineCount = Math.max(1, Math.floor(visibleHeight / lineHeight));
+
+      setEditorViewportLineCount((current) =>
+        current === nextLineCount ? current : nextLineCount,
+      );
+    }
+
+    updateEditorViewportLineCount();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateEditorViewportLineCount();
+    });
+
+    resizeObserver.observe(editorElement);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   async function handleStandardReview(draft: string) {
     if (!draft.trim()) {
@@ -278,7 +411,9 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
       };
 
       if (!response.ok || !data.feedback) {
-        throw new Error(data.error || "The reviewer could not score that attempt.");
+        throw new Error(
+          data.error || "The reviewer could not score that attempt.",
+        );
       }
 
       setFeedback(data.feedback);
@@ -297,161 +432,107 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   async function handleReview(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
 
-    if (panelMode === "quick_question") {
-      return;
-    }
-
     const currentDraft = pseudocode;
 
     setPanelMode("standard");
-    setGuideActionError(null);
-    void seedGuideSession(currentDraft, { clearSession: false });
+    setGuideSendError(null);
 
     await handleStandardReview(currentDraft);
   }
 
   function handleResetWorkspace() {
-    if (reviewLoading || guideSeedLoading || guideActionLoading) {
+    if (reviewLoading || guideStartLoading || guideSendLoading) {
       return;
     }
 
-    guideSeedRequestIdRef.current += 1;
+    guideConversationVersionRef.current += 1;
 
     if (draftReady) {
       window.localStorage.removeItem(storageKey);
     }
 
+    window.localStorage.removeItem(guideStorageKey);
+
     setPseudocode("");
     setFeedback(null);
     setPanelMode("ai_guide");
     setStandardError(null);
-    setGuideSeedError(null);
-    setGuideActionError(null);
-    setGuideSession(null);
+    setGuideLoadError(null);
+    setGuideSendError(null);
+    setGuideMessages([]);
     setGuideDraftSnapshot(null);
+    setGuideStateReady(false);
     setFeedbackResetSignal((current) => current + 1);
-    void seedGuideSession("", { clearSession: true });
+    void startGuideConversation("", { replaceTranscript: true });
   }
 
-  async function handleGuideAnswerSubmit(answer: string) {
-    if (
-      !guideSession ||
-      guideSession.canAdvance ||
-      guideSession.completed ||
-      guideSession.revealedAnswer
-    ) {
+  function handleGuideClearHistory() {
+    if (guideStartLoading || guideSendLoading) {
       return;
     }
 
-    setGuideActionLoading(true);
-    setGuideActionError(null);
+    guideConversationVersionRef.current += 1;
+    window.localStorage.removeItem(guideStorageKey);
+
+    setPanelMode("ai_guide");
+    setGuideLoadError(null);
+    setGuideSendError(null);
+    setGuideMessages([]);
+    setGuideDraftSnapshot(null);
+    setGuideStateReady(false);
+    setFeedbackResetSignal((current) => current + 1);
+
+    void startGuideConversation(pseudocode, { replaceTranscript: true });
+  }
+
+  async function handleGuideSendMessage(message: string) {
+    if (!guideStateReady || !message.trim() || guideSendLoading) {
+      return;
+    }
+
+    const currentDraft = guideDraftSnapshot ?? pseudocode;
+    const nextUserMessage: GuideMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: message.trim(),
+    };
+    const nextMessages = [...guideMessages, nextUserMessage];
+    const requestVersion = guideConversationVersionRef.current;
+
+    setGuideSendLoading(true);
+    setGuideSendError(null);
+    setGuideMessages(nextMessages);
 
     try {
-      const response = await fetch("/api/review/guide", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "answer",
-          problemSlug: problem.slug,
-          pseudocode: guideDraftSnapshot ?? pseudocode,
-          session: guideSession,
-          answer,
-        }),
-      });
+      const assistantMessage = await requestGuideMessage(
+        problem.slug,
+        currentDraft,
+        nextMessages,
+      );
 
-      const data = (await response.json()) as {
-        session?: GuideSessionResponse;
-        error?: string;
-      };
-
-      if (!response.ok || !data.session) {
-        throw new Error(
-          data.error || "The guide could not score that answer right now.",
-        );
+      if (requestVersion !== guideConversationVersionRef.current) {
+        return;
       }
 
-      setGuideSession(data.session);
-    } catch (guideAnswerError) {
-      setGuideActionError(
-        guideAnswerError instanceof Error
-          ? guideAnswerError.message
-          : "Something went wrong while scoring that answer.",
-      );
-    } finally {
-      setGuideActionLoading(false);
-    }
-  }
-
-  async function handleGuideReveal() {
-    if (
-      !guideSession ||
-      guideSession.attemptCount < 1 ||
-      guideSession.canAdvance ||
-      guideSession.completed ||
-      guideSession.revealedAnswer
-    ) {
-      return;
-    }
-
-    setGuideActionLoading(true);
-    setGuideActionError(null);
-
-    try {
-      const response = await fetch("/api/review/guide", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "reveal",
-          problemSlug: problem.slug,
-          pseudocode: guideDraftSnapshot ?? pseudocode,
-          session: guideSession,
-        }),
-      });
-
-      const data = (await response.json()) as {
-        session?: GuideSessionResponse;
-        error?: string;
-      };
-
-      if (!response.ok || !data.session) {
-        throw new Error(
-          data.error || "The guide could not reveal that answer right now.",
-        );
+      setGuideMessages((currentMessages) => [
+        ...currentMessages,
+        assistantMessage,
+      ]);
+    } catch (guideMessageError) {
+      if (requestVersion !== guideConversationVersionRef.current) {
+        return;
       }
 
-      setGuideSession(data.session);
-    } catch (guideRevealError) {
-      setGuideActionError(
-        guideRevealError instanceof Error
-          ? guideRevealError.message
-          : "Something went wrong while revealing that answer.",
+      setGuideSendError(
+        guideMessageError instanceof Error
+          ? guideMessageError.message
+          : "Something went wrong while sending that message.",
       );
     } finally {
-      setGuideActionLoading(false);
+      if (requestVersion === guideConversationVersionRef.current) {
+        setGuideSendLoading(false);
+      }
     }
-  }
-
-  function handleGuideAdvance() {
-    if (!guideSession?.canAdvance || !guideSession.queuedNextQuestion) {
-      return;
-    }
-
-    setGuideActionError(null);
-    setGuideSession({
-      currentQuestion: guideSession.queuedNextQuestion,
-      currentAnswer: null,
-      verdict: null,
-      feedback: null,
-      attemptCount: 0,
-      revealedAnswer: null,
-      queuedNextQuestion: null,
-      canAdvance: false,
-      completed: false,
-    });
   }
 
   function handleEditorScroll(event: UIEvent<HTMLTextAreaElement>) {
@@ -462,69 +543,87 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     lineNumberRef.current.scrollTop = event.currentTarget.scrollTop;
   }
 
-  return (
-    <div className="flex flex-col gap-4 xl:flex-1 xl:min-h-0">
-      <header className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:items-center">
-        <div className="flex min-w-0 items-center">
-          <Link
-            href="/"
-            className="inline-flex w-fit items-center gap-2 text-sm font-medium text-muted transition hover:text-foreground"
-          >
-            <WorkspaceIcon name="back" className="h-4 w-4" />
-            Back to problem list
-          </Link>
-        </div>
+  const guidePanelError = guideSendError ?? guideLoadError;
 
-        <div className="xl:justify-self-center">
-          <h1 className="text-center text-[1.9rem] font-semibold tracking-tight text-foreground sm:text-[2.4rem]">
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-5">
+      <header className="flex flex-col gap-3">
+        <Link
+          href="/problems"
+          className="inline-flex w-fit items-center gap-2 text-sm font-medium text-muted transition hover:text-foreground"
+        >
+          <WorkspaceIcon name="back" className="h-4 w-4" />
+          Back to problem list
+        </Link>
+
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:items-center">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <DifficultyBadge difficulty={problem.difficulty} />
+              <span className="linear-pill rounded-full px-3 py-1.5 text-sm text-foreground">
+                {problem.category}
+              </span>
+          </div>
+
+          <h1 className="linear-heading min-w-0 text-[2rem] font-semibold tracking-tight sm:text-[2.4rem] xl:text-center xl:text-[2.1rem]">
             {problem.title}
           </h1>
-        </div>
 
-        <div className="flex items-center gap-2 xl:justify-self-end">
-          <button
-            type="submit"
-            form="problem-review-form"
-            disabled={
-              reviewLoading ||
-              guideActionLoading ||
-              panelMode === "quick_question"
-            }
-            className={`rounded-2xl px-5 py-3 text-sm font-semibold transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 ${workspaceAccentButtonClass}`}
-          >
-            {reviewLoading ? "Running..." : "Run Logic"}
-          </button>
-          <button
-            type="button"
-            onClick={handleResetWorkspace}
-            disabled={reviewLoading || guideSeedLoading || guideActionLoading}
-            className={`${workspaceCardSurfaceClass} inline-flex h-12 w-12 items-center justify-center rounded-2xl text-muted transition hover:border-white hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60`}
-            aria-label="Reset workspace"
-            title="Reset workspace"
-          >
-            <WorkspaceIcon name="reset" />
-          </button>
-          <DifficultyBadge difficulty={problem.difficulty} />
+          <div className="flex items-center gap-2 xl:justify-self-end xl:shrink-0">
+            <button
+              type="submit"
+              form="problem-review-form"
+              disabled={reviewLoading || guideSendLoading}
+              className={`rounded-2xl px-5 py-3 text-sm font-semibold transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 ${workspaceAccentButtonClass}`}
+            >
+              {reviewLoading ? "Running..." : "Check logic"}
+            </button>
+            <button
+              type="button"
+              onClick={handleResetWorkspace}
+              disabled={reviewLoading || guideStartLoading || guideSendLoading}
+              className="linear-soft-button inline-flex h-12 w-12 items-center justify-center rounded-2xl text-muted transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Reset workspace"
+              title="Reset workspace"
+            >
+              <WorkspaceIcon name="reset" />
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="grid gap-4 xl:flex-1 xl:min-h-0 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,1fr)]">
-        <ProblemPane problem={problem} />
+      <div className="grid min-h-0 flex-1 gap-4 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] xl:grid-rows-none">
+        <div className="grid min-h-0 gap-4 xl:h-full xl:grid-rows-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <ProblemPane problem={problem} />
 
-        <div className="grid gap-4 xl:min-h-0 xl:h-full xl:grid-rows-[minmax(220px,0.75fr)_minmax(290px,1fr)]">
-          <form
+          <SpotlightCard
+            as="form"
             id="problem-review-form"
             onSubmit={handleReview}
-            className={`${workspacePanelSurfaceClass} flex h-full flex-col rounded-[2rem] p-3 xl:min-h-0`}
+            className={`${workspacePanelSurfaceClass} flex h-full flex-col rounded-[2rem] p-4 xl:min-h-0`}
           >
+            <div className="relative z-10 flex items-center justify-between gap-3 pb-4">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+                  Pseudocode draft
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Explain the algorithm step by step before you optimize the
+                  final answer.
+                </p>
+              </div>
+              <span className="linear-pill rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
+                {contentLineCount} lines
+              </span>
+            </div>
+
             <label htmlFor="pseudocode-editor" className="sr-only">
               Pseudocode editor
             </label>
-            <div className="flex min-h-[18rem] flex-1 overflow-hidden rounded-[1.65rem] border border-white/12 bg-[linear-gradient(180deg,rgba(51,56,72,0.92)_0%,rgba(35,40,53,0.96)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-colors focus-within:border-white xl:min-h-0">
+            <div className="linear-editor-surface flex min-h-[18rem] flex-1 overflow-hidden rounded-[1.65rem] transition-colors focus-within:border-[rgba(34,199,184,0.38)] xl:min-h-0">
               <div
                 ref={lineNumberRef}
                 aria-hidden="true"
-                className="min-w-[3.75rem] overflow-hidden border-r border-white/10 bg-[rgba(32,36,48,0.88)] px-3 py-3 font-mono text-[13px] leading-[1.6] text-muted"
+                className="min-w-[3.75rem] overflow-hidden border-r border-white/8 bg-white/5 px-3 py-3 font-mono text-[13px] leading-[1.6] text-muted"
               >
                 {lineNumbers.map((lineNumber) => (
                   <span key={lineNumber} className="block text-right">
@@ -534,37 +633,37 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
               </div>
 
               <textarea
+                ref={editorRef}
                 id="pseudocode-editor"
-                rows={12}
+                rows={editorViewportLineCount}
                 value={pseudocode}
                 onChange={(event) => setPseudocode(event.target.value)}
                 onScroll={handleEditorScroll}
                 placeholder="Describe your algorithm step by step..."
                 spellCheck={false}
                 wrap="off"
-                className="min-h-[18rem] w-full flex-1 resize-none overflow-auto bg-transparent px-4 py-3 font-mono text-[13px] leading-[1.7] text-foreground outline-none placeholder:text-muted xl:min-h-0"
+                className="min-h-[18rem] w-full flex-1 resize-none overflow-auto bg-transparent px-4 py-3 font-mono text-[13px] leading-[1.72] text-foreground outline-none placeholder:text-muted xl:min-h-0"
               />
             </div>
-          </form>
+          </SpotlightCard>
+        </div>
 
+        <div className="min-h-0 h-full">
           <FeedbackPanel
             feedback={feedback}
-            problemSlug={problem.slug}
-            pseudocode={pseudocode}
             resetSignal={feedbackResetSignal}
             panelMode={panelMode}
             onPanelModeChange={setPanelMode}
-            guideSession={guideSession}
+            guideMessages={guideMessages}
             guideIsStale={guideIsStale}
-            guideLoading={guideSeedLoading}
-            guideActionLoading={guideActionLoading}
-            guideError={guideActionError}
-            onGuideAnswerSubmit={handleGuideAnswerSubmit}
-            onGuideReveal={handleGuideReveal}
-            onGuideAdvance={handleGuideAdvance}
+            guideLoading={guideStartLoading}
+            guideActionLoading={guideSendLoading}
+            guideError={guidePanelError}
+            onGuideSendMessage={handleGuideSendMessage}
+            onGuideClearHistory={handleGuideClearHistory}
             reviewLoading={reviewLoading}
-            error={panelMode === "ai_guide" ? guideSeedError : standardError}
-            className="xl:min-h-0"
+            error={panelMode === "ai_guide" ? guidePanelError : standardError}
+            className="h-full min-h-0"
           />
         </div>
       </div>
