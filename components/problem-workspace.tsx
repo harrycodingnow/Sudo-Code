@@ -475,6 +475,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     window.localStorage.removeItem(guideStorageKey);
 
     setPanelMode("ai_guide");
+    setGuideStartLoading(true);
     setGuideLoadError(null);
     setGuideSendError(null);
     setGuideMessages([]);
@@ -641,8 +642,8 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
                 onScroll={handleEditorScroll}
                 placeholder="Describe your algorithm step by step..."
                 spellCheck={false}
-                wrap="off"
-                className="min-h-[18rem] w-full flex-1 resize-none overflow-auto bg-transparent px-4 py-3 font-mono text-[13px] leading-[1.72] text-foreground outline-none placeholder:text-muted xl:min-h-0"
+                wrap="soft"
+                className="min-h-[18rem] w-full flex-1 resize-none overflow-y-auto overflow-x-hidden bg-transparent px-4 py-3 font-mono text-[13px] leading-[1.72] text-foreground outline-none placeholder:text-muted [overflow-wrap:anywhere] xl:min-h-0"
               />
             </div>
           </SpotlightCard>

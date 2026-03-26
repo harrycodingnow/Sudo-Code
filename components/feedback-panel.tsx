@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import { SpotlightCard } from "@/components/spotlight-card";
+import { cn } from "@/lib/cn";
 
 import type {
   FeedbackPanelMode,
@@ -46,20 +47,42 @@ type FeedbackPanelProps = {
   className?: string;
 };
 
-function buildResultFeedbackText(feedback: Review) {
-  const verdict = verdictCopy[feedback.verdict].label;
-  const sentence1 = `${verdict}. ${feedback.summary.trim()}`;
-  const topIssue = [
+type ResultFeedbackContent = {
+  verdict: string;
+  summary: string | null;
+  highlights: string[];
+  timeComplexity: string;
+  spaceComplexity: string;
+};
+
+function toSentence(text: string) {
+  const normalized = text.trim().replace(/\s+/g, " ");
+
+  if (!normalized) {
+    return null;
+  }
+
+  return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`;
+}
+
+function buildResultFeedbackContent(feedback: Review): ResultFeedbackContent {
+  const highlights = [
     ...feedback.logic_issues,
     ...feedback.missing_steps,
     ...feedback.improvement_suggestions,
-  ][0];
-  const sentence2 = topIssue ? topIssue.trim() : null;
-  const sentence3 = `Time: ${feedback.time_complexity} · Space: ${feedback.space_complexity}.`;
+  ]
+    .map((item) => toSentence(item))
+    .filter((item): item is string => Boolean(item))
+    .filter((item, index, items) => items.indexOf(item) === index)
+    .slice(0, 3);
 
-  return [sentence1, sentence2, sentence3]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .join(" ");
+  return {
+    verdict: toSentence(verdictCopy[feedback.verdict].label) ?? verdictCopy[feedback.verdict].label,
+    summary: toSentence(feedback.summary),
+    highlights,
+    timeComplexity: feedback.time_complexity.trim(),
+    spaceComplexity: feedback.space_complexity.trim(),
+  };
 }
 
 const coachShellSurfaceClass = "linear-shell";
@@ -105,27 +128,70 @@ function FeedbackModeToggle({
 }
 
 function ResultFeedbackPanel({
-  value,
+  content,
   placeholder,
 }: {
-  value: string;
+  content: ResultFeedbackContent | null;
   placeholder: string;
 }) {
-  const content = value.trim();
-  const hasContent = content.length > 0;
+  const resolvedContent = content;
+  const hasContent = Boolean(resolvedContent);
 
   return (
-    <div className="flex min-w-0 flex-col gap-3">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
       {hasContent ? (
         <>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Review ready
             </span>
           </div>
-          <div className={`${coachCardSurfaceClass} rounded-[1.5rem] px-4 py-4`}>
-            <p className="text-sm leading-6 text-foreground">{content}</p>
+          <div
+            className={`${coachCardSurfaceClass} flex min-h-0 flex-1 overflow-hidden rounded-[1.5rem]`}
+          >
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 overscroll-contain">
+              <div className="space-y-2">
+                <p className="text-base font-semibold text-foreground">
+                  {resolvedContent?.verdict}
+                </p>
+                {resolvedContent?.summary ? (
+                  <p className="text-sm leading-6 text-foreground">
+                    {resolvedContent.summary}
+                  </p>
+                ) : null}
+              </div>
+
+              {resolvedContent?.highlights.length ? (
+                <ul className="space-y-2 text-sm leading-6 text-foreground">
+                  {resolvedContent.highlights.map((highlight) => (
+                    <li key={highlight} className="flex gap-2">
+                      <span className="mt-[0.55rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/45" />
+                      <span>{highlight}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="linear-pill rounded-[1rem] px-3 py-2">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+                    Time
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    {resolvedContent?.timeComplexity}
+                  </p>
+                </div>
+                <div className="linear-pill rounded-[1rem] px-3 py-2">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">
+                    Space
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    {resolvedContent?.spaceComplexity}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </>
       ) : (
@@ -180,14 +246,22 @@ function PanelShell({
   );
 }
 
-function LoadingCard({ message }: { message: string }) {
+function LoadingCard({
+  message,
+  className = "",
+}: {
+  message: string;
+  className?: string;
+}) {
   return (
-    <div className={`${coachCardSurfaceClass} rounded-[1.5rem] p-4`}>
-      <p className="text-sm leading-6 text-muted">{message}</p>
-      <div className="mt-4 flex items-center gap-2">
-        <span className="h-2 w-2 animate-bounce rounded-full bg-white/70 [animation-delay:-0.2s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-white/55 [animation-delay:-0.1s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-white/40" />
+    <div className={cn("flex min-h-0 flex-1 items-center justify-center", className)}>
+      <div className={`${coachCardSurfaceClass} w-full max-w-md rounded-[1.5rem] p-4`}>
+        <p className="text-sm leading-6 text-muted">{message}</p>
+        <div className="mt-4 flex items-center gap-2">
+          <span className="h-2 w-2 animate-bounce rounded-full bg-white/70 [animation-delay:-0.2s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-white/55 [animation-delay:-0.1s]" />
+          <span className="h-2 w-2 animate-bounce rounded-full bg-white/40" />
+        </div>
       </div>
     </div>
   );
@@ -479,14 +553,14 @@ export function FeedbackPanel({
         className={className}
       >
         <ResultFeedbackPanel
-          value=""
+          content={null}
           placeholder="Run Check My Logic and your latest review will appear here."
         />
       </PanelShell>
     );
   }
 
-  const resultFeedbackText = buildResultFeedbackText(feedback);
+  const resultFeedbackContent = buildResultFeedbackContent(feedback);
 
   return (
     <PanelShell
@@ -497,7 +571,7 @@ export function FeedbackPanel({
       className={className}
     >
       <ResultFeedbackPanel
-        value={resultFeedbackText}
+        content={resultFeedbackContent}
         placeholder="Run Check My Logic and your latest review will appear here."
       />
     </PanelShell>
