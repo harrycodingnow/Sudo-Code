@@ -4,7 +4,7 @@
 
 # SudoCode
 
-SudoCode is a logic-first interview practice app for solving data structures and algorithms problems in pseudocode. Instead of compiling code, it focuses on reasoning: draft an approach, get structured AI feedback, talk through the problem with a guide chatbot, and track your progress across the full set.
+SudoCode is a logic-first interview practice app for solving the **Blind 75** in pseudocode. Instead of compiling code, it focuses on reasoning: draft an approach, get structured AI feedback, talk through the problem with a guide chatbot, and track your progress across the full set.
 
 ## Screenshots
 
@@ -20,7 +20,7 @@ Add these screenshot files to the project root so they render in this README:
 
 ## What the app does
 
-- Practice against a seeded set of **75 interview-style problems**
+- Practice against the full **Blind 75**
 - Solve problems in a dedicated pseudocode workspace
 - Get a structured AI review with verdict, summary, issues, and complexity
 - Use the guide chatbot for a more interactive, interviewer-style coaching flow
@@ -38,7 +38,7 @@ Add these screenshot files to the project root so they render in this README:
 
 ### Tracker
 
-- See what you have completed out of the full set
+- See what you have completed out of the Blind 75
 - Track which problems are in progress or need review
 - Store time spent, language, notes, companies, and review frequency
 
@@ -108,7 +108,7 @@ components/
   problem-tracker.tsx          Tracker interface
   problem-workspace.tsx        Main problem-solving experience
 data/
-  problems.ts                  Seeded problem bank
+  problems.ts                  Blind 75 problem bank
   tracker-metadata.ts          Tracker metadata per problem
 lib/
   problems.ts                  Problem lookup helpers
@@ -122,6 +122,6 @@ types/
 ## Notes
 
 - The app is intentionally focused on interview reasoning, not code execution
-- Problem content is seeded locally for speed and simple deployment
+- Problem content is seeded locally from the Blind 75 for speed and simple deployment
 - Tracker data and editor drafts are stored client-side
 - The review and guide flows are designed to feel like interview feedback, not compiler output
