@@ -11,7 +11,7 @@ import type {
   TrackerRow,
 } from "@/types/tracker";
 
-export const TRACKER_STORAGE_KEY = "sudocode:tracker:v1";
+export const TRACKER_STORAGE_KEY = "sudocode:tracker:v2";
 
 export const TRACKER_PROGRESS_ORDER: TrackerProgressStatus[] = [
   "To Do",
@@ -95,13 +95,6 @@ function sanitizeEntry(raw: unknown, fallback: TrackerEntry): TrackerEntry {
   };
 }
 
-function buildSeedEntry(problem: ProblemSummary): TrackerEntry {
-  return {
-    ...buildDefaultEntry(),
-    ...trackerSeedMetadata[problem.slug]?.initialState,
-  };
-}
-
 function fallbackSourceUrl(slug: string) {
   return `https://leetcode.com/problems/${slug}/`;
 }
@@ -117,7 +110,7 @@ export function createInitialTrackerEntries(
   problems: ProblemSummary[],
 ): Record<string, TrackerEntry> {
   return Object.fromEntries(
-    problems.map((problem) => [problem.slug, buildSeedEntry(problem)]),
+    problems.map((problem) => [problem.slug, buildDefaultEntry()]),
   );
 }
 
@@ -158,13 +151,39 @@ export function saveTrackerEntries(entries: Record<string, TrackerEntry>) {
   window.localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(entries));
 }
 
+export function markTrackerEntryCompleted(
+  problems: ProblemSummary[],
+  slug: string,
+  completedAt = new Date(),
+) {
+  const entries = loadTrackerEntries(problems);
+  const currentEntry = entries[slug];
+
+  if (!currentEntry) {
+    return null;
+  }
+
+  const nextEntry: TrackerEntry = {
+    ...currentEntry,
+    progress: "Completed",
+    dateSolved: currentEntry.dateSolved ?? toIsoDate(completedAt),
+  };
+
+  saveTrackerEntries({
+    ...entries,
+    [slug]: nextEntry,
+  });
+
+  return nextEntry;
+}
+
 export function buildTrackerRows(
   problems: ProblemSummary[],
   entries: Record<string, TrackerEntry>,
 ): TrackerRow[] {
   return problems.map((problem, index) => {
     const metadata = trackerSeedMetadata[problem.slug];
-    const entry = entries[problem.slug] ?? buildSeedEntry(problem);
+    const entry = entries[problem.slug] ?? buildDefaultEntry();
 
     return {
       ...problem,

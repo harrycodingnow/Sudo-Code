@@ -1,12 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type SVGProps,
-} from "react";
+import { useEffect, useMemo, useState, type SVGProps } from "react";
 
 import {
   TRACKER_DIFFICULTY_ORDER,
@@ -40,7 +36,6 @@ type ProblemTrackerProps = {
 
 type TrackerColumnKey =
   | "name"
-  | "sourceUrl"
   | "difficulty"
   | "topic"
   | "progress"
@@ -58,8 +53,7 @@ const trackerColumns: Array<{
   label: string;
   widthClassName: string;
 }> = [
-  { key: "name", label: "Name", widthClassName: "w-[240px]" },
-  { key: "sourceUrl", label: "LeetCode URL", widthClassName: "w-[220px]" },
+  { key: "name", label: "Name", widthClassName: "w-[250px]" },
   { key: "difficulty", label: "Difficulty", widthClassName: "w-[150px]" },
   { key: "topic", label: "Topic", widthClassName: "w-[180px]" },
   { key: "progress", label: "Problem Progress", widthClassName: "w-[170px]" },
@@ -200,23 +194,24 @@ function TrackerBadge({
     | "complexity";
 }) {
   const styles: Record<typeof tone, string> = {
-    easy:    "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    medium:  "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-    hard:    "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-    todo:    "bg-white/[0.03] text-muted border border-white/10",
+    easy: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    medium: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+    hard: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+    todo: "bg-white/[0.03] text-muted border border-white/10",
     progress: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-    review:  "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-    completed: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    daily:   "linear-pill text-rose-300",
-    weekly:  "linear-pill text-amber-300",
+    review: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+    completed:
+      "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+    daily: "linear-pill text-rose-300",
+    weekly: "linear-pill text-amber-300",
     monthly: "linear-pill text-emerald-300",
-    once:    "linear-pill text-muted",
-    "language-js":     "linear-pill text-yellow-300",
-    "language-cpp":    "linear-pill text-blue-300",
+    once: "linear-pill text-muted",
+    "language-js": "linear-pill text-yellow-300",
+    "language-cpp": "linear-pill text-blue-300",
     "language-python": "linear-pill text-green-300",
-    "language-java":   "linear-pill text-orange-300",
-    "language-ts":     "linear-pill text-blue-400",
-    topic:      "linear-pill text-foreground",
+    "language-java": "linear-pill text-orange-300",
+    "language-ts": "linear-pill text-blue-400",
+    topic: "linear-pill text-foreground",
     complexity: "linear-pill text-foreground",
   };
 
@@ -272,10 +267,6 @@ function getLanguageTone(language: string) {
   return "complexity";
 }
 
-function displaySourceUrl(sourceUrl: string) {
-  return sourceUrl.replace(/^https?:\/\//, "").replace(/^www\./, "");
-}
-
 function formatTimeSpent(minutes: number | null) {
   return minutes == null ? "—" : `${minutes}`;
 }
@@ -289,7 +280,12 @@ function TrackerTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[1980px] table-fixed border-collapse">
+      <table className="w-max min-w-[1980px] table-fixed border-collapse">
+        <colgroup>
+          {trackerColumns.map((column) => (
+            <col key={column.key} className={column.widthClassName} />
+          ))}
+        </colgroup>
         <thead>
           <tr className="border-b border-border/70 bg-white/[0.02]">
             {trackerColumns.map((column) => (
@@ -311,26 +307,33 @@ function TrackerTable({
                 className="cursor-pointer border-b border-border/70 transition hover:bg-white/[0.035]"
               >
                 <td className="px-3 py-3 align-top">
-                  <div className="min-w-0">
+                  <div className="flex min-w-0 items-start gap-2 text-sm font-semibold leading-6 text-foreground">
+                    <a
+                      href={row.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label="Open on LeetCode"
+                      title="Open on LeetCode"
+                      className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition hover:bg-white/[0.04] hover:text-white"
+                    >
+                      <Image
+                        src="/leetcode.png"
+                        alt=""
+                        width={16}
+                        height={16}
+                        aria-hidden="true"
+                        className="h-4 w-4 object-contain"
+                      />
+                    </a>
                     <Link
                       href={`/problems/${row.slug}`}
                       onClick={(event) => event.stopPropagation()}
-                      className="line-clamp-2 text-sm font-semibold text-foreground hover:text-white"
+                      className="block min-w-0 flex-1 whitespace-normal break-words hover:text-white"
                     >
                       {row.title}
                     </Link>
                   </div>
-                </td>
-                <td className="px-3 py-3 align-top">
-                  <a
-                    href={row.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(event) => event.stopPropagation()}
-                    className="block truncate text-sm text-muted hover:text-white"
-                  >
-                    {displaySourceUrl(row.sourceUrl)}
-                  </a>
                 </td>
                 <td className="px-3 py-3 align-top">
                   <TrackerBadge
@@ -352,16 +355,10 @@ function TrackerTable({
                   />
                 </td>
                 <td className="px-3 py-3 align-top">
-                  <TrackerBadge
-                    label={row.timeComplexity}
-                    tone="complexity"
-                  />
+                  <TrackerBadge label={row.timeComplexity} tone="complexity" />
                 </td>
                 <td className="px-3 py-3 align-top">
-                  <TrackerBadge
-                    label={row.spaceComplexity}
-                    tone="complexity"
-                  />
+                  <TrackerBadge label={row.spaceComplexity} tone="complexity" />
                 </td>
                 <td className="px-3 py-3 align-top text-right text-sm text-foreground">
                   {formatTimeSpent(row.timeSpentMinutes)}
@@ -494,7 +491,10 @@ function TrackerDrawer({
               {row.title}
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <TrackerBadge label={row.difficulty} tone={getDifficultyTone(row)} />
+              <TrackerBadge
+                label={row.difficulty}
+                tone={getDifficultyTone(row)}
+              />
               {row.topicTags.map((tag) => (
                 <TrackerBadge key={tag} label={tag} tone="topic" />
               ))}
@@ -539,13 +539,19 @@ function TrackerDrawer({
                 <div>
                   <p className="text-xs text-muted">Time complexity</p>
                   <div className="mt-1">
-                    <TrackerBadge label={row.timeComplexity} tone="complexity" />
+                    <TrackerBadge
+                      label={row.timeComplexity}
+                      tone="complexity"
+                    />
                   </div>
                 </div>
                 <div>
                   <p className="text-xs text-muted">Space complexity</p>
                   <div className="mt-1">
-                    <TrackerBadge label={row.spaceComplexity} tone="complexity" />
+                    <TrackerBadge
+                      label={row.spaceComplexity}
+                      tone="complexity"
+                    />
                   </div>
                 </div>
               </div>
@@ -584,7 +590,8 @@ function TrackerDrawer({
                 onChange={(event) =>
                   onChange({
                     ...draft,
-                    reviewFrequency: event.target.value as TrackerReviewFrequency,
+                    reviewFrequency: event.target
+                      .value as TrackerReviewFrequency,
                   })
                 }
                 className="mt-2 h-11 w-full rounded-xl linear-input-surface px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-[#5E6AD2]/50 focus:ring-offset-2 focus:ring-offset-[#050506]"
@@ -816,7 +823,9 @@ function CalendarView({
                   onClick={() => onRowSelect(row)}
                   className="app-panel-muted block w-full rounded-xl px-2.5 py-2 text-left text-xs text-foreground hover:border-white/30 hover:bg-white/[0.05]"
                 >
-                  <span className="block truncate font-medium">{row.title}</span>
+                  <span className="block truncate font-medium">
+                    {row.title}
+                  </span>
                   <span className="mt-1 inline-flex">
                     <TrackerBadge
                       label={row.progress}
@@ -826,7 +835,9 @@ function CalendarView({
                 </button>
               ))}
               {day.rows.length > 3 ? (
-                <p className="text-xs text-muted">+{day.rows.length - 3} more</p>
+                <p className="text-xs text-muted">
+                  +{day.rows.length - 3} more
+                </p>
               ) : null}
             </div>
           </div>
@@ -924,12 +935,17 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
                 Problem Tracker
               </h1>
               <p className="mt-1.5 text-sm text-muted">
-                Track progress, review cadence, and solve history across the full problem set.
+                Track progress, review cadence, and solve history across the
+                full problem set.
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end">
-              <span className="text-5xl font-bold tracking-tight text-foreground sm:text-6xl">{rows.length}</span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">Tracked problems</span>
+              <span className="text-5xl font-bold tracking-tight text-foreground sm:text-6xl">
+                {rows.length}
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+                Tracked problems
+              </span>
             </div>
           </div>
 
@@ -948,7 +964,9 @@ export function ProblemTracker({ problems }: ProblemTrackerProps) {
                       : "linear-pill text-muted hover:text-foreground"
                   }`}
                 >
-                  <Icon name={view.icon as Parameters<typeof Icon>[0]["name"]} />
+                  <Icon
+                    name={view.icon as Parameters<typeof Icon>[0]["name"]}
+                  />
                   {view.label}
                 </button>
               );

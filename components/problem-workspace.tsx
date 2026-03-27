@@ -15,6 +15,7 @@ import { DifficultyBadge } from "@/components/difficulty-badge";
 import { FeedbackPanel } from "@/components/feedback-panel";
 import { ProblemPane } from "@/components/problem-pane";
 import { SpotlightCard } from "@/components/spotlight-card";
+import { getProblemSummaries } from "@/lib/problems";
 import type {
   FeedbackPanelMode,
   GuideMessage,
@@ -22,6 +23,7 @@ import type {
   GuideStartResponse,
   Review,
 } from "@/lib/review-schema";
+import { loadTrackerEntries, markTrackerEntryCompleted } from "@/lib/tracker";
 import type { Problem } from "@/types/problem";
 
 type ProblemWorkspaceProps = {
@@ -188,6 +190,7 @@ const workspacePanelSurfaceClass = "linear-shell";
 const workspaceAccentButtonClass = "linear-accent-button";
 
 export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
+  const problemSummaries = useMemo(() => getProblemSummaries(), []);
   const storageKey = useMemo(
     () => `sudocode:draft:${problem.slug}`,
     [problem.slug],
@@ -214,6 +217,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [guideStartLoading, setGuideStartLoading] = useState(false);
   const [guideSendLoading, setGuideSendLoading] = useState(false);
+  const [isMarkedComplete, setIsMarkedComplete] = useState(false);
   const [feedbackResetSignal, setFeedbackResetSignal] = useState(0);
   const [editorViewportLineCount, setEditorViewportLineCount] = useState(12);
   const contentLineCount = useMemo(
@@ -234,6 +238,8 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
       guideDraftSnapshot !== pseudocode &&
       guideMessages.length > 0,
   );
+  const workspaceActionDisabled =
+    reviewLoading || guideStartLoading || guideSendLoading;
 
   const startGuideConversation = useCallback(
     async (
@@ -315,6 +321,13 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     guideStorageKey,
     startGuideConversation,
   ]);
+
+  useEffect(() => {
+    const trackerEntries = loadTrackerEntries(problemSummaries);
+    setIsMarkedComplete(
+      trackerEntries[problem.slug]?.progress === "Completed",
+    );
+  }, [problem.slug, problemSummaries]);
 
   useEffect(() => {
     if (!draftReady) {
@@ -441,7 +454,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   }
 
   function handleResetWorkspace() {
-    if (reviewLoading || guideStartLoading || guideSendLoading) {
+    if (workspaceActionDisabled) {
       return;
     }
 
@@ -464,6 +477,18 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     setGuideStateReady(false);
     setFeedbackResetSignal((current) => current + 1);
     void startGuideConversation("", { replaceTranscript: true });
+  }
+
+  function handleMarkAsComplete() {
+    if (workspaceActionDisabled) {
+      return;
+    }
+
+    const nextEntry = markTrackerEntryCompleted(problemSummaries, problem.slug);
+
+    if (nextEntry?.progress === "Completed") {
+      setIsMarkedComplete(true);
+    }
   }
 
   function handleGuideClearHistory() {
@@ -581,12 +606,26 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
             <button
               type="button"
               onClick={handleResetWorkspace}
-              disabled={reviewLoading || guideStartLoading || guideSendLoading}
+              disabled={workspaceActionDisabled}
               className="linear-soft-button inline-flex h-12 w-12 items-center justify-center rounded-2xl text-muted transition hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               aria-label="Reset workspace"
               title="Reset workspace"
             >
               <WorkspaceIcon name="reset" />
+            </button>
+            <button
+              type="button"
+              onClick={handleMarkAsComplete}
+              disabled={workspaceActionDisabled}
+              className={`inline-flex h-12 items-center rounded-2xl px-5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                isMarkedComplete
+                  ? "border border-emerald-400/30 bg-emerald-500/12 text-emerald-200 shadow-[0_12px_24px_rgba(16,185,129,0.12),inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-emerald-300/40 hover:bg-emerald-500/16"
+                  : "linear-soft-button text-foreground"
+              }`}
+              aria-label="Mark problem as complete"
+              title="Mark problem as complete"
+            >
+              {isMarkedComplete ? "Completed" : "Mark as complete"}
             </button>
           </div>
         </div>

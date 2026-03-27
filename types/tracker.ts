@@ -30,7 +30,6 @@ export type TrackerSeedMetadata = {
   topicTags: string[];
   timeComplexity: string;
   spaceComplexity: string;
-  initialState?: Partial<TrackerEntry>;
 };
 
 export type TrackerRow = ProblemSummary &

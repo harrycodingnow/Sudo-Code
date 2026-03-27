@@ -90,9 +90,8 @@ export function ProblemCatalog({ problems }: ProblemCatalogProps) {
       </div>
 
       <div className="linear-shell overflow-hidden rounded-[2rem]">
-        <div className="hidden grid-cols-[minmax(0,1fr)_160px] gap-4 border-b border-white/6 px-6 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-muted lg:grid">
-          <span>Problem</span>
-          <span className="text-right">Next step</span>
+        <div className="hidden border-b border-white/6 px-6 py-3 font-mono text-[11px] uppercase tracking-[0.18em] text-muted lg:block">
+          Problem
         </div>
 
         <div>

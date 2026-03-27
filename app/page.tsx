@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { DifficultyBadge } from "@/components/difficulty-badge";
+import { FeaturedProblemList } from "@/components/featured-problem-list";
 import { PageFrame } from "@/components/page-frame";
 import { SpotlightCard } from "@/components/spotlight-card";
 import { getProblemSummaries } from "@/lib/problems";
@@ -50,7 +50,7 @@ export default function Home() {
 
             <div className="space-y-4">
               <h1 className="linear-heading max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-                Build algorithm judgment before you worry about syntax.
+                Build algorithm before you worry about syntax.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted sm:text-lg">
                 SudoCode gives you a dedicated problem workspace, an interview
@@ -113,7 +113,7 @@ export default function Home() {
               Featured prompts
             </p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
-              Start with something high signal.
+              Start with something popular.
             </h2>
           </div>
 
@@ -125,43 +125,7 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="linear-shell overflow-hidden rounded-[2rem]">
-          {featuredProblems.map((problem) => (
-            <Link
-              key={problem.id}
-              href={`/problems/${problem.slug}`}
-              className="group block border-b border-white/6 last:border-b-0"
-            >
-              <div className="relative z-10 flex flex-col gap-4 px-5 py-5 transition hover:bg-white/[0.035] sm:px-6 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 space-y-3">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-                    {problem.category}
-                  </p>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-                    <h3 className="text-2xl font-semibold tracking-tight text-foreground transition group-hover:text-white">
-                      {problem.title}
-                    </h3>
-                    <DifficultyBadge difficulty={problem.difficulty} />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {problem.keyConcepts.slice(0, 3).map((concept) => (
-                      <span
-                        key={concept}
-                        className="linear-pill inline-flex rounded-full px-3 py-1.5 text-sm text-foreground"
-                      >
-                        {concept}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="text-sm font-medium text-muted transition group-hover:text-foreground lg:pt-1">
-                  Open workspace
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <FeaturedProblemList problems={featuredProblems} />
       </section>
     </PageFrame>
   );
