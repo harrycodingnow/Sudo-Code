@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { PageFrame } from "@/components/page-frame";
-import { SpotlightCard } from "@/components/spotlight-card";
+import { PageFrame } from "@/components/legacy/page-frame";
+import { SpotlightCard } from "@/components/legacy/spotlight-card";
 
 export default function NotFound() {
   return (

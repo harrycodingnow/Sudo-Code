@@ -1,8 +1,12 @@
 import { zodTextFormat } from "openai/helpers/zod";
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-import { getProblemBySlug } from "@/lib/problems";
+import {
+  buildCompactProblemContext,
+  resolveProblem,
+} from "@/lib/ai/problem-context";
+import { QUICK_HELP_RULES } from "@/lib/ai/chat-policies";
+import { getOpenAIClient } from "@/lib/ai/openai-client";
 import {
   quickHelpRequestSchema,
   quickHelpResponseSchema,
@@ -22,51 +26,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const problem = getProblemBySlug(result.data.problemSlug);
+    const problem = resolveProblem(result.data.problemSlug);
 
     if (!problem) {
       return NextResponse.json(
-        {
-          error: "That problem could not be found.",
-        },
+        { error: "That problem could not be found." },
         { status: 404 },
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "OPENAI_API_KEY is missing. Add it to your environment before requesting feedback.",
-        },
-        { status: 500 },
-      );
+    const openai = getOpenAIClient();
+    if (!openai.ok) {
+      return NextResponse.json({ error: openai.error }, { status: 500 });
     }
 
-    const client = new OpenAI({ apiKey });
     const isHint = result.data.mode === "hint";
 
-    const response = await client.responses.parse({
-      model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+    const response = await openai.client.responses.parse({
+      model: openai.model,
       input: [
         {
           role: "system",
           content: [
             {
               type: "input_text",
-              text: `You are a concise algorithm coach.
-
-Reply with exactly one short line.
-- Maximum 14 words.
-- No bullets, no numbering, no code blocks.
-- No explanation, no justification, no filler.
-- Prefer the direct answer only.
-- Keep the tone calm and specific.
-- Never reveal the full solution.
-- If mode is "hint", give only the next small nudge.
-- If mode is "question", answer only the narrow question asked with the shortest correct reply.`,
+              text: QUICK_HELP_RULES,
             },
           ],
         },
@@ -75,11 +59,7 @@ Reply with exactly one short line.
           content: [
             {
               type: "input_text",
-              text: `Problem:
-Title: ${problem.title}
-Difficulty: ${problem.difficulty}
-Category: ${problem.category}
-Description: ${problem.description}
+              text: `${buildCompactProblemContext(problem)}
 
 Candidate pseudocode:
 ${result.data.pseudocode || "(none yet)"}
@@ -99,9 +79,7 @@ Return a single-line reply in {"answer":"..."} format.`,
 
     if (!response.output_parsed) {
       return NextResponse.json(
-        {
-          error: "The assistant returned an unreadable quick reply. Try again.",
-        },
+        { error: "The assistant returned an unreadable quick reply. Try again." },
         { status: 502 },
       );
     }

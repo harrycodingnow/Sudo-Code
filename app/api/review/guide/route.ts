@@ -1,9 +1,14 @@
 import { zodTextFormat } from "openai/helpers/zod";
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getProblemBySlug } from "@/lib/problems";
+import {
+  buildProblemContext,
+  resolveProblem,
+  type ResolvedProblem,
+} from "@/lib/ai/problem-context";
+import { SOCRATIC_COACH_RULES } from "@/lib/ai/chat-policies";
+import { getOpenAIClient } from "@/lib/ai/openai-client";
 import {
   guideMessageRequestSchema,
   guideMessageResponseSchema,
@@ -33,19 +38,6 @@ function normalizeNullableLine(value: string | null | undefined) {
   return normalized.length > 0 ? normalized : null;
 }
 
-function buildProblemContext(
-  problem: NonNullable<ReturnType<typeof getProblemBySlug>>,
-) {
-  return `Problem context:
-Title: ${problem.title}
-Difficulty: ${problem.difficulty}
-Category: ${problem.category}
-Description: ${problem.description}
-Examples: ${JSON.stringify(problem.examples)}
-Constraints: ${JSON.stringify(problem.constraints)}
-Key concepts: ${JSON.stringify(problem.keyConcepts)}`;
-}
-
 function formatTranscript(messages: z.infer<typeof guideMessageSchema>[]) {
   return messages
     .map((message) => {
@@ -54,28 +46,6 @@ function formatTranscript(messages: z.infer<typeof guideMessageSchema>[]) {
     })
     .join("\n");
 }
-
-const guideCoachingRules = `You are an expert coding interview coach using the Socratic method.
-
-Goal:
-- Help the user solve LeetCode-style problems themselves.
-- Never give the full solution outright.
-- If the user asks for the answer directly, give at most pseudocode skeleton or a guiding question.
-- Keep the conversation moving one step at a time.
-
-Coaching rules:
-- Validate what is right before pointing out errors.
-- Point out at most 1-2 critical issues at a time.
-- If the user is stuck, break the problem into the smallest possible next step.
-- After a correct solution, offer to trace a concrete example step by step.
-- After a working solution, ask about time and space complexity.
-- Use encouraging language like "You're close!" or "Exactly!".
-- Never reveal the data structure or algorithm to use.
-- Ask questions that lead the user to choose it themselves.
-- Keep replies concise and focused.
-- Do not add edge cases, caveats, or extra considerations unless the user asked about them or they are necessary to correct the user's current statement.
-- Do not volunteer multiple ideas in one reply.
-- Do not reveal the full solution, full algorithm, or complete code.`;
 
 export async function POST(request: Request) {
   try {
@@ -95,27 +65,18 @@ export async function POST(request: Request) {
         );
       }
 
-      const problem = getProblemBySlug(messageResult.data.problemSlug);
+      const problem = resolveProblem(messageResult.data.problemSlug);
 
       if (!problem) {
         return NextResponse.json(
-          {
-            error: "That problem could not be found.",
-          },
+          { error: "That problem could not be found." },
           { status: 404 },
         );
       }
 
-      const apiKey = process.env.OPENAI_API_KEY;
-
-      if (!apiKey) {
-        return NextResponse.json(
-          {
-            error:
-              "OPENAI_API_KEY is missing. Add it to your environment before requesting guide replies.",
-          },
-          { status: 500 },
-        );
+      const openai = getOpenAIClient();
+      if (!openai.ok) {
+        return NextResponse.json({ error: openai.error }, { status: 500 });
       }
 
       const messages = messageResult.data.messages;
@@ -123,28 +84,24 @@ export async function POST(request: Request) {
 
       if (!lastMessage || lastMessage.role !== "user") {
         return NextResponse.json(
-          {
-            error: "The latest guide message must come from the user.",
-          },
+          { error: "The latest guide message must come from the user." },
           { status: 400 },
         );
       }
 
-      const client = new OpenAI({ apiKey });
-      const problemContext = buildProblemContext(problem);
       const draftText = messageResult.data.pseudocode.trim()
         ? messageResult.data.pseudocode
         : "(none yet)";
 
-      const response = await client.responses.parse({
-        model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+      const response = await openai.client.responses.parse({
+        model: openai.model,
         input: [
           {
             role: "system",
             content: [
               {
                 type: "input_text",
-                text: `${guideCoachingRules}
+                text: `${SOCRATIC_COACH_RULES}
 
 Chat behavior:
 - Continue the conversation naturally.
@@ -169,7 +126,7 @@ Chat behavior:
             content: [
               {
                 type: "input_text",
-                text: `${problemContext}
+                text: `${buildProblemContext(problem)}
 
 Candidate pseudocode:
 ${draftText}
@@ -192,9 +149,7 @@ Return the next assistant message in JSON.`,
 
       if (!response.output_parsed) {
         return NextResponse.json(
-          {
-            error: "The guide returned an unreadable reply. Try again.",
-          },
+          { error: "The guide returned an unreadable reply. Try again." },
           { status: 502 },
         );
       }
@@ -212,18 +167,18 @@ Return the next assistant message in JSON.`,
       );
     }
 
-    const problem = getProblemBySlug(result.data.problemSlug);
+    const problem = resolveProblem(result.data.problemSlug);
 
     if (!problem) {
       return NextResponse.json(
-        {
-          error: "That problem could not be found.",
-        },
+        { error: "That problem could not be found." },
         { status: 404 },
       );
     }
 
-    const fixedQuestion = normalizeNullableLine(problem.initialGuideQuestion);
+    const fixedQuestion = normalizeNullableLine(
+      (problem as ResolvedProblem).initialGuideQuestion,
+    );
 
     if (fixedQuestion) {
       return NextResponse.json(
@@ -237,33 +192,24 @@ Return the next assistant message in JSON.`,
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "OPENAI_API_KEY is missing. Add it to your environment before requesting guide questions.",
-        },
-        { status: 500 },
-      );
+    const openai = getOpenAIClient();
+    if (!openai.ok) {
+      return NextResponse.json({ error: openai.error }, { status: 500 });
     }
 
-    const client = new OpenAI({ apiKey });
-    const problemContext = buildProblemContext(problem);
     const draftText = result.data.pseudocode.trim()
       ? result.data.pseudocode
       : "(none yet)";
 
-    const response = await client.responses.parse({
-      model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+    const response = await openai.client.responses.parse({
+      model: openai.model,
       input: [
         {
           role: "system",
           content: [
             {
               type: "input_text",
-              text: `${guideCoachingRules}
+              text: `${SOCRATIC_COACH_RULES}
 
 Opening behavior:
 - Return exactly one short opening message.
@@ -279,7 +225,7 @@ Opening behavior:
           content: [
             {
               type: "input_text",
-              text: `${problemContext}
+              text: `${buildProblemContext(problem)}
 
 Candidate pseudocode:
 ${draftText}
@@ -296,9 +242,7 @@ Return the first assistant message in JSON.`,
 
     if (!response.output_parsed) {
       return NextResponse.json(
-        {
-          error: "The guide returned an unreadable first message. Try again.",
-        },
+        { error: "The guide returned an unreadable first message. Try again." },
         { status: 502 },
       );
     }

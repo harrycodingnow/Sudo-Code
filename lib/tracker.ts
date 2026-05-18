@@ -10,8 +10,9 @@ import type {
   TrackerReviewFrequency,
   TrackerRow,
 } from "@/types/tracker";
+import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/browser-storage";
 
-export const TRACKER_STORAGE_KEY = "sudocode:tracker:v2";
+export const TRACKER_STORAGE_KEY = STORAGE_KEYS.tracker;
 
 export const TRACKER_PROGRESS_ORDER: TrackerProgressStatus[] = [
   "To Do",
@@ -119,36 +120,24 @@ export function loadTrackerEntries(
 ): Record<string, TrackerEntry> {
   const seededEntries = createInitialTrackerEntries(problems);
 
-  if (typeof window === "undefined") {
+  const parsed = readJSON<Record<string, unknown> | null>(
+    TRACKER_STORAGE_KEY,
+    null,
+  );
+  if (!parsed) {
     return seededEntries;
   }
 
-  try {
-    const storedValue = window.localStorage.getItem(TRACKER_STORAGE_KEY);
-
-    if (!storedValue) {
-      return seededEntries;
-    }
-
-    const parsed = JSON.parse(storedValue) as Record<string, unknown>;
-
-    return Object.fromEntries(
-      problems.map((problem) => {
-        const fallback = seededEntries[problem.slug];
-        return [problem.slug, sanitizeEntry(parsed[problem.slug], fallback)];
-      }),
-    );
-  } catch {
-    return seededEntries;
-  }
+  return Object.fromEntries(
+    problems.map((problem) => {
+      const fallback = seededEntries[problem.slug];
+      return [problem.slug, sanitizeEntry(parsed[problem.slug], fallback)];
+    }),
+  );
 }
 
 export function saveTrackerEntries(entries: Record<string, TrackerEntry>) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(entries));
+  writeJSON(TRACKER_STORAGE_KEY, entries);
 }
 
 export function markTrackerEntryCompleted(

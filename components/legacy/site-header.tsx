@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Logo } from "@/components/logo";
-import { SpotlightCard } from "@/components/spotlight-card";
+import { Logo } from "@/components/legacy/logo";
+import { SpotlightCard } from "@/components/legacy/spotlight-card";
 import { cn } from "@/lib/cn";
 
 const navItems = [

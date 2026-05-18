@@ -1,4 +1,4 @@
-import { SpotlightCard } from "@/components/spotlight-card";
+import { SpotlightCard } from "@/components/legacy/spotlight-card";
 import type { Difficulty } from "@/types/problem";
 import type { TrackerHomeSummary } from "@/types/tracker";
 
