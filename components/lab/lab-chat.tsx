@@ -11,13 +11,15 @@ import {
   useState,
 } from "react";
 
+import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/browser-storage";
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
 };
 
-const STORAGE_KEY = "sudocode:chat:v1";
+const STORAGE_KEY = STORAGE_KEYS.labChat;
 const MAX_HISTORY = 24;
 
 const STARTER_MESSAGE: ChatMessage = {
@@ -94,32 +96,17 @@ export function LabChat() {
 
   // Hydrate from localStorage once
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as ChatMessage[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
-        }
-      }
-    } catch {
-      // ignore
+    const parsed = readJSON<ChatMessage[] | null>(STORAGE_KEY, null);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      setMessages(parsed);
     }
     setHydrated(true);
   }, []);
 
   // Persist
   useEffect(() => {
-    if (!hydrated || typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(messages.slice(-MAX_HISTORY)),
-      );
-    } catch {
-      // ignore quota errors
-    }
+    if (!hydrated) return;
+    writeJSON(STORAGE_KEY, messages.slice(-MAX_HISTORY));
   }, [messages, hydrated]);
 
   // Autoscroll on new message / open

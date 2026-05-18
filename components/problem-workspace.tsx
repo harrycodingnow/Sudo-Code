@@ -14,6 +14,13 @@ import {
 
 import type { Review } from "@/lib/review-schema";
 import type { Problem } from "@/types/problem";
+import {
+  readJSON,
+  readString,
+  STORAGE_KEYS,
+  writeJSON,
+  writeString,
+} from "@/lib/browser-storage";
 
 type ProblemWorkspaceProps = {
   problem: Problem;
@@ -210,7 +217,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   const mainRef = useRef<HTMLDivElement | null>(null);
   const centerRef = useRef<HTMLElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  const layoutKey = `sudocode:layout:${problem.slug}`;
+  const layoutKey = STORAGE_KEYS.workspaceLayout(problem.slug);
   const [layout, setLayout] = useState({
     sidebarW: 220,
     editorPct: 70,
@@ -218,18 +225,11 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     col2Pct: 33,
   });
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(layoutKey);
-      if (raw) {
-        const v = JSON.parse(raw);
-        if (v && typeof v === "object") setLayout((p) => ({ ...p, ...v }));
-      }
-    } catch {}
+    const v = readJSON<Partial<typeof layout> | null>(layoutKey, null);
+    if (v && typeof v === "object") setLayout((p) => ({ ...p, ...v }));
   }, [layoutKey]);
   useEffect(() => {
-    try {
-      localStorage.setItem(layoutKey, JSON.stringify(layout));
-    } catch {}
+    writeJSON(layoutKey, layout);
   }, [layout, layoutKey]);
 
   const startSidebarDrag = useCallback((e: React.PointerEvent) => {
@@ -313,9 +313,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   // mark complete state (local-only; tracker integration intentionally dropped
   // in this lab UI revamp — re-wire via the tracker page if needed).
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem(`sudocode:lab:complete:${problem.slug}`);
-    setIsComplete(raw === "1");
+    setIsComplete(readString(STORAGE_KEYS.labComplete(problem.slug)) === "1");
   }, [problem.slug]);
 
   // ---- test cases (derived from examples) ----
@@ -396,9 +394,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   }
 
   function handleMarkComplete() {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(`sudocode:lab:complete:${problem.slug}`, "1");
-    }
+    writeString(STORAGE_KEYS.labComplete(problem.slug), "1");
     setIsComplete(true);
   }
 
