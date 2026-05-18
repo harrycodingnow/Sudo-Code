@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { DifficultyBadge } from "@/components/difficulty-badge";
+import { DifficultyBadge } from "@/components/legacy/difficulty-badge";
 import {
   ProblemListLeadingStatus,
   ProblemListStatusBadge,
-} from "@/components/problem-list-status-badge";
+} from "@/components/legacy/problem-list-status-badge";
 import {
   createInitialTrackerEntries,
   loadTrackerEntries,

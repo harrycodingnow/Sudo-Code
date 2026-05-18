@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { SpotlightCard } from "@/components/spotlight-card";
+import { SpotlightCard } from "@/components/legacy/spotlight-card";
 import { cn } from "@/lib/cn";
 
 import type {

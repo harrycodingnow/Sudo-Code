@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { SiteHeader } from "@/components/site-header";
+import { SiteHeader } from "@/components/legacy/site-header";
 import { cn } from "@/lib/cn";
 
 type PageFrameProps = {

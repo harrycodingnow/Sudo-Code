@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { SpotlightCard } from "@/components/spotlight-card";
+import { SpotlightCard } from "@/components/legacy/spotlight-card";
 import type { Problem } from "@/types/problem";
 
 type ProblemPaneProps = {

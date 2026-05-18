@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { ProblemCard } from "@/components/problem-card";
+import { ProblemCard } from "@/components/legacy/problem-card";
 import {
   buildTrackerHomeSummary,
   buildTrackerRows,

@@ -1,10 +1,10 @@
 import Link from "next/link";
 
-import { DifficultyBadge } from "@/components/difficulty-badge";
+import { DifficultyBadge } from "@/components/legacy/difficulty-badge";
 import {
   ProblemListLeadingStatus,
   ProblemListStatusBadge,
-} from "@/components/problem-list-status-badge";
+} from "@/components/legacy/problem-list-status-badge";
 import type { TrackerRow } from "@/types/tracker";
 
 type ProblemCardProps = {
