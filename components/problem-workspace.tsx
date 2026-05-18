@@ -748,20 +748,14 @@ function WorkspaceGuide({ problemSlug, code }: WorkspaceGuideProps) {
       const apiMessages = nextHistory
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map((m) => ({ role: m.role, content: m.content }));
-      // Pass user's pseudocode as an extra trailing user note so the guide
-      // can reason about it without us editing the API contract.
-      if (code.trim()) {
-        apiMessages.splice(apiMessages.length - 1, 0, {
-          role: "user",
-          content: `(my current pseudocode draft, for context only — do not write code for me)\n${code}`,
-        });
-      }
+      const draftPseudocode = code.trim() ? code : undefined;
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: apiMessages,
           context: { page: "workspace", problemSlug },
+          draftPseudocode,
         }),
       });
       const data = (await res.json()) as {
