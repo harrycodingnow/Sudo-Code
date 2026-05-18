@@ -1,8 +1,12 @@
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getProblemSummaries } from "@/lib/problems";
+import {
+  buildCatalogSummary,
+  resolveProblem,
+} from "@/lib/ai/problem-context";
+import { NAVIGATION_ASSISTANT_PROMPT } from "@/lib/ai/chat-policies";
+import { getOpenAIClient } from "@/lib/ai/openai-client";
 
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -17,23 +21,11 @@ const chatRequestSchema = z.object({
       problemSlug: z.string().optional(),
     })
     .optional(),
+  // Optional explicit context the workspace guide attaches to a turn so the
+  // server can decide how to inject it. Previously the workspace smuggled
+  // this in as a fake user message which made /api/chat's contract implicit.
+  draftPseudocode: z.string().max(12000).optional(),
 });
-
-const SYSTEM_PROMPT = `You are SudoCode's onboarding companion — a friendly, concise assistant who lives in the corner of every page.
-
-Your job:
-- Help the user navigate the app: Home (/), Problems catalog (/problems), Practice tracker (/tracker), and individual problem workspaces at /problems/<slug>.
-- Explain features when asked: pseudocode-first editor, AI logic validator, inline chat guide on each problem, kanban tracker (To Do → In Progress → Need Review → Completed), filter bar on /problems.
-- Answer general data-structures-and-algorithms questions at a high, conceptual level.
-- Suggest a relevant problem from the catalog when the user expresses interest in a topic.
-- If the user is on a specific problem and asks for hints, use the Socratic method: never give the full algorithm or code; ask one guiding question at a time.
-
-Style:
-- Keep replies short — 1 to 3 sentences for navigation/feature answers, up to ~5 for concept explanations.
-- Plain text. Use \`backticks\` only for code/file/path tokens. No long markdown.
-- When pointing the user at a page, write the path in backticks like \`/problems\` so the UI can render it nicely.
-- Encouraging tone, terminal/hacker vibe is fine but never cringey.
-- If you don't know something app-specific, say so honestly.`;
 
 export async function POST(request: Request) {
   let parsed: z.infer<typeof chatRequestSchema>;
@@ -46,15 +38,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        error:
-          "OPENAI_API_KEY is missing. Add it to your environment before using the chatbot.",
-      },
-      { status: 500 },
-    );
+  const openai = getOpenAIClient();
+  if (!openai.ok) {
+    return NextResponse.json({ error: openai.error }, { status: 500 });
   }
 
   const lastMessage = parsed.messages[parsed.messages.length - 1];
@@ -65,39 +51,40 @@ export async function POST(request: Request) {
     );
   }
 
-  // Compact catalog context so the model can recommend real problems.
-  const catalog = getProblemSummaries()
-    .slice(0, 24)
-    .map(
-      (p) =>
-        `- ${p.title} [${p.difficulty}, ${p.category}] -> /problems/${p.slug}`,
-    )
-    .join("\n");
+  // Full catalog so the assistant can recommend any problem — the old
+  // hard-coded 24-cap silently hid the rest of the product catalog.
+  const catalog = buildCatalogSummary();
 
   const pageHint = parsed.context?.page
     ? `User is currently on the ${parsed.context.page} page.`
     : "";
-  const problemHint = parsed.context?.problemSlug
-    ? `Active problem: ${parsed.context.problemSlug}.`
+  const problem = resolveProblem(parsed.context?.problemSlug);
+  const problemHint = problem
+    ? `Active problem: ${problem.slug} (${problem.title}, ${problem.difficulty}).`
+    : parsed.context?.problemSlug
+      ? `Active problem: ${parsed.context.problemSlug}.`
+      : "";
+
+  const draft = parsed.draftPseudocode?.trim();
+  const draftHint = draft
+    ? `\n\nThe user's current pseudocode draft (context only — do NOT write code for them):\n${draft}`
     : "";
 
-  const client = new OpenAI({ apiKey });
-
   try {
-    const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+    const response = await openai.client.responses.create({
+      model: openai.model,
       input: [
         {
           role: "system",
           content: [
             {
               type: "input_text",
-              text: `${SYSTEM_PROMPT}
+              text: `${NAVIGATION_ASSISTANT_PROMPT}
 
-Problem catalog (first 24):
+Problem catalog:
 ${catalog}
 
-${pageHint} ${problemHint}`.trim(),
+${pageHint} ${problemHint}${draftHint}`.trim(),
             },
           ],
         },

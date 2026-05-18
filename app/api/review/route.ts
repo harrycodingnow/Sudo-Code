@@ -1,8 +1,12 @@
 import { zodTextFormat } from "openai/helpers/zod";
-import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-import { getProblemBySlug } from "@/lib/problems";
+import {
+  buildProblemContext,
+  resolveProblem,
+} from "@/lib/ai/problem-context";
+import { reviewCoachingInstructions } from "@/lib/ai/chat-policies";
+import { getOpenAIClient } from "@/lib/ai/openai-client";
 import { reviewRequestSchema, reviewSchema } from "@/lib/review-schema";
 
 export async function POST(request: Request) {
@@ -19,47 +23,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const problem = getProblemBySlug(result.data.problemSlug);
+    const problem = resolveProblem(result.data.problemSlug);
 
     if (!problem) {
       return NextResponse.json(
-        {
-          error: "That problem could not be found.",
-        },
+        { error: "That problem could not be found." },
         { status: 404 },
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "OPENAI_API_KEY is missing. Add it to your environment before requesting feedback.",
-        },
-        { status: 500 },
-      );
+    const openai = getOpenAIClient();
+    if (!openai.ok) {
+      return NextResponse.json({ error: openai.error }, { status: 500 });
     }
 
-    const client = new OpenAI({ apiKey });
     const guideMode = result.data.reviewMode === "ai_guide";
-    const coachingInstructions = guideMode
-      ? `Coaching style:
-- Never give the answer directly. Ask guiding questions instead.
-- Break problems into tiny steps.
-- Validate what is right, then correct what is wrong without discouraging.
-- Let the candidate write the code themselves, then fix mistakes incrementally.
-- Use trace-throughs to solidify understanding.
-- Do not reveal the complete corrected algorithm, full code, or polished pseudocode.
-- In the summary and arrays, prefer short questions, prompts, and next-step nudges over declarative answers.`
-      : `Response style:
-- Be direct about what is correct, incomplete, or incorrect.
-- Prefer concise, concrete statements over hints.
-- You may state the missing step explicitly when it materially improves the feedback.`;
+    const coachingInstructions = reviewCoachingInstructions(guideMode);
 
-    const response = await client.responses.parse({
-      model: process.env.OPENAI_MODEL ?? "gpt-5-mini",
+    const response = await openai.client.responses.parse({
+      model: openai.model,
       input: [
         {
           role: "system",
@@ -86,14 +68,7 @@ ${coachingInstructions}`,
           content: [
             {
               type: "input_text",
-              text: `Problem context:
-Title: ${problem.title}
-Difficulty: ${problem.difficulty}
-Category: ${problem.category}
-Description: ${problem.description}
-Examples: ${JSON.stringify(problem.examples)}
-Constraints: ${JSON.stringify(problem.constraints)}
-Key concepts: ${JSON.stringify(problem.keyConcepts)}
+              text: `${buildProblemContext(problem)}
 
 Candidate pseudocode:
 ${result.data.pseudocode}
@@ -112,9 +87,7 @@ Return structured feedback for this candidate.`,
 
     if (!response.output_parsed) {
       return NextResponse.json(
-        {
-          error: "The reviewer returned an unreadable response. Try again.",
-        },
+        { error: "The reviewer returned an unreadable response. Try again." },
         { status: 502 },
       );
     }
