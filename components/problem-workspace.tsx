@@ -18,31 +18,25 @@ import { LAB_STYLES } from "@/components/problem-workspace.styles";
 
 import {
   readJSON,
-  readString,
   STORAGE_KEYS,
   writeJSON,
-  writeString,
 } from "@/lib/browser-storage";
+import {
+  isTrackerSlugCompleted,
+  markTrackerSlugCompleted,
+} from "@/lib/tracker";
 
 type ProblemWorkspaceProps = {
   problem: Problem;
 };
 
-type TestCaseStatus = "pending" | "running" | "pass" | "fail";
-
-type TestCase = {
+type ValidatorDetail = { label: string; body: string; quote?: string };
+type ValidatorSection = {
   id: string;
-  label: string;
-  input: string;
-  expected: string;
-  status: TestCaseStatus;
-};
-
-type ValidatorMessage = {
-  id: string;
-  kind: "good" | "tip" | "error";
-  concept: string;
-  body: string;
+  kind: "summary" | "good" | "fix" | "notes";
+  title: string;
+  lead: string;
+  details: ValidatorDetail[];
 };
 
 // ---------- syntax highlighting ----------
@@ -176,37 +170,146 @@ async function requestReview(problemSlug: string, pseudocode: string) {
   return data.review;
 }
 
-function reviewToValidatorMessages(review: Review): ValidatorMessage[] {
-  const msgs: ValidatorMessage[] = [];
-  let idx = 0;
-  const push = (
-    kind: ValidatorMessage["kind"],
-    concept: string,
-    body: string,
-  ) => {
-    if (!body.trim()) return;
-    msgs.push({ id: `m${idx++}`, kind, concept, body: body.trim() });
-  };
+function firstSentence(text: string): string {
+  const t = text.trim();
+  if (!t) return "";
+  const m = t.match(/^.*?[.!?](?:\s|$)/);
+  return (m ? m[0] : t).trim();
+}
 
-  if (review.summary) {
-    push(
-      review.verdict === "correct"
-        ? "good"
-        : review.verdict === "incorrect"
-          ? "error"
-          : "tip",
-      "Summary",
-      review.summary,
-    );
+function joinSentences(parts: string[], max = 2): string {
+  const cleaned = parts.map((p) => p.trim()).filter(Boolean);
+  const out = cleaned.slice(0, max).map((p) => firstSentence(p));
+  return out
+    .map((s) => (/[.!?]$/.test(s) ? s : s + "."))
+    .join(" ")
+    .trim();
+}
+
+function reviewToSections(review: Review): ValidatorSection[] {
+  const sections: ValidatorSection[] = [];
+
+  // 1. SUMMARY — 1–2 sentences, no expand
+  if (review.summary?.trim()) {
+    sections.push({
+      id: "summary",
+      kind: "summary",
+      title: "Summary",
+      lead: joinSentences([review.summary], 2),
+      details: [],
+    });
   }
-  for (const item of review.logic_issues) push("error", "Logic issue", item);
-  for (const item of review.missing_steps) push("tip", "Missing step", item);
-  for (const item of review.edge_cases) push("tip", "Edge case", item);
-  for (const item of review.improvement_suggestions)
-    push("tip", "Improvement", item);
-  if (review.time_complexity)
-    push("good", "Time complexity", review.time_complexity);
-  return msgs.slice(0, 8);
+
+  // 2. WHAT YOU GOT RIGHT — one sentence lead, details = remaining strengths
+  const strengths = (review.strengths ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (strengths.length > 0) {
+    const [lead, ...rest] = strengths;
+    sections.push({
+      id: "good",
+      kind: "good",
+      title: "What you got right",
+      lead: firstSentence(lead),
+      details: [
+        ...(lead.length > firstSentence(lead).length
+          ? [{ label: "More on this", body: lead }]
+          : []),
+        ...rest.map((body, i) => ({ label: `Also #${i + 1}`, body })),
+      ],
+    });
+  }
+
+  // 3. WHAT TO FIX — merges logic_issues, missing_steps, edge_cases,
+  // clarifications, improvements. One-sentence lead picks the highest-priority
+  // item; everything else lives behind the expand.
+  type FixItem = { label: string; body: string; quote?: string };
+  const fixes: FixItem[] = [];
+  for (const body of review.logic_issues ?? [])
+    if (body.trim()) fixes.push({ label: "Logic issue", body: body.trim() });
+  for (const body of review.missing_steps ?? [])
+    if (body.trim()) fixes.push({ label: "Missing step", body: body.trim() });
+  for (const body of review.edge_cases ?? [])
+    if (body.trim()) fixes.push({ label: "Edge case", body: body.trim() });
+  for (const c of review.clarifications ?? []) {
+    if (c.question?.trim())
+      fixes.push({
+        label: "Clarify",
+        body: c.question.trim(),
+        quote: c.quote?.trim() || undefined,
+      });
+  }
+  for (const body of review.improvement_suggestions ?? [])
+    if (body.trim()) fixes.push({ label: "Improvement", body: body.trim() });
+
+  // de-dup on lowercase body
+  const seen = new Set<string>();
+  const uniqueFixes = fixes.filter((f) => {
+    const k = f.body.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  if (uniqueFixes.length > 0) {
+    const [head, ...rest] = uniqueFixes;
+    sections.push({
+      id: "fix",
+      kind: "fix",
+      title: "What to fix",
+      lead: firstSentence(head.body),
+      details: [
+        ...(head.body.length > firstSentence(head.body).length || head.quote
+          ? [
+              {
+                label: head.label,
+                body: head.body,
+                quote: head.quote,
+              },
+            ]
+          : []),
+        ...rest,
+      ],
+    });
+  }
+
+  // 4. COMPLEXITY — compact card summarising big-O analysis.
+  const tc = review.time_complexity?.trim();
+  const sc = review.space_complexity?.trim();
+  if (tc || sc) {
+    const parts: string[] = [];
+    if (tc) parts.push(`Time ${tc}`);
+    if (sc) parts.push(`Space ${sc}`);
+    sections.push({
+      id: "complexity",
+      kind: "notes",
+      title: "Complexity",
+      lead: parts.join(" · "),
+      details: [],
+    });
+  }
+
+  // 5. INTERVIEWER FOLLOW-UP — surface the prompt's suggested next questions.
+  const followups = (review.interviewer_followup ?? [])
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (followups.length > 0) {
+    const [first, ...rest] = followups;
+    sections.push({
+      id: "followup",
+      kind: "notes",
+      title: "Interviewer follow-up",
+      lead: firstSentence(first),
+      details: [
+        ...(first.length > firstSentence(first).length
+          ? [{ label: "More on this", body: first }]
+          : []),
+        ...rest.map((body, i) => ({ label: `Follow-up #${i + 2}`, body })),
+      ],
+    });
+  }
+
+  return sections;
 }
 
 // ---------- main component ----------
@@ -223,9 +326,13 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
   const [layout, setLayout] = useState({
     sidebarW: 220,
     editorPct: 70,
-    col1Pct: 29,
-    col2Pct: 33,
+    validatorPct: 50,
+    guideW: 380,
   });
+  const [guideExpanded, setGuideExpanded] = useState(false);
+  const toggleGuideExpanded = useCallback(() => {
+    setGuideExpanded((v) => !v);
+  }, []);
   useEffect(() => {
     const v = readJSON<Partial<typeof layout> | null>(layoutKey, null);
     if (v && typeof v === "object") setLayout((p) => ({ ...p, ...v }));
@@ -269,21 +376,15 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     window.addEventListener("pointerup", onUp);
   }, []);
 
-  const startBottomDrag = useCallback((which: 1 | 2) => (e: React.PointerEvent) => {
+  const startBottomDrag = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
     const rect = bottomRef.current?.getBoundingClientRect();
     if (!rect) return;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const onMove = (ev: PointerEvent) => {
       const pct = ((ev.clientX - rect.left) / rect.width) * 100;
-      setLayout((p) => {
-        if (which === 1) {
-          const next = Math.max(15, Math.min(p.col1Pct + p.col2Pct - 15, pct));
-          return { ...p, col1Pct: next };
-        }
-        const next = Math.max(p.col1Pct + 15, Math.min(85, pct));
-        return { ...p, col2Pct: next - p.col1Pct };
-      });
+      const next = Math.max(20, Math.min(80, pct));
+      setLayout((p) => ({ ...p, validatorPct: next }));
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -293,52 +394,50 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     window.addEventListener("pointerup", onUp);
   }, []);
 
-  const col3Pct = Math.max(15, 100 - layout.col1Pct - layout.col2Pct);
-  const mainStyle = { gridTemplateColumns: `${layout.sidebarW}px 4px 1fr` };
+  const startGuideDrag = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = layout.guideW;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      // drag left edge of guide → moving left grows the guide
+      const next = Math.max(260, Math.min(720, startW - (ev.clientX - startX)));
+      setLayout((p) => ({ ...p, guideW: next }));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [layout.guideW]);
+
+  const mainStyle = guideExpanded
+    ? {
+        gridTemplateColumns: `${layout.sidebarW}px 4px 1fr 4px ${layout.guideW}px`,
+      }
+    : { gridTemplateColumns: `${layout.sidebarW}px 4px 1fr` };
   const centerStyle = { gridTemplateRows: `${layout.editorPct}% 4px 1fr` };
-  const bottomStyle = {
-    gridTemplateColumns: `${layout.col1Pct}% 4px ${layout.col2Pct}% 4px ${col3Pct}%`,
-  };
+  const bottomStyle = guideExpanded
+    ? { gridTemplateColumns: `1fr` }
+    : { gridTemplateColumns: `${layout.validatorPct}% 4px 1fr` };
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validatorMsgs, setValidatorMsgs] = useState<ValidatorMessage[]>([]);
+  const [sections, setSections] = useState<ValidatorSection[]>([]);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [activeLine, setActiveLine] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    "editor" | "history" | "complexity"
-  >("editor");
   const [isComplete, setIsComplete] = useState(false);
 
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
 
-  // mark complete state (local-only; tracker integration intentionally dropped
-  // in this lab UI revamp — re-wire via the tracker page if needed).
+  // mark complete state — sourced from the slug-scoped tracker store so the
+  // workspace and the /tracker page stay in sync without ever clobbering
+  // entries for other slugs.
   useEffect(() => {
-    setIsComplete(readString(STORAGE_KEYS.labComplete(problem.slug)) === "1");
+    setIsComplete(isTrackerSlugCompleted(problem.slug));
   }, [problem.slug]);
-
-  // ---- test cases (derived from examples) ----
-  const initialCases: TestCase[] = useMemo(
-    () =>
-      problem.examples.slice(0, 6).map((ex, i) => ({
-        id: `c${i}`,
-        label: `Case ${i + 1}`,
-        input: ex.input,
-        expected: ex.output,
-        status: "pending" as TestCaseStatus,
-      })),
-    [problem.examples],
-  );
-  const [cases, setCases] = useState<TestCase[]>(initialCases);
-  const [selectedCase, setSelectedCase] = useState<string>(
-    initialCases[0]?.id ?? "",
-  );
-
-  useEffect(() => {
-    setCases(initialCases);
-    setSelectedCase(initialCases[0]?.id ?? "");
-  }, [initialCases]);
 
   // ---- editor scroll sync ----
   const handleScroll = useCallback((e: UIEvent<HTMLTextAreaElement>) => {
@@ -360,58 +459,30 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
     }
     setRunning(true);
     setError(null);
-    setValidatorMsgs([]);
+    setSections([]);
+    setOpenSections({});
 
-    // animate test cases: each goes running -> resolved with 120ms stagger
-    setCases((prev) =>
-      prev.map((c) => ({ ...c, status: "pending" as TestCaseStatus })),
-    );
-
-    let review: Review | null = null;
     try {
-      review = await requestReview(problem.slug, code);
+      const review = await requestReview(problem.slug, code);
+      setSections(reviewToSections(review));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Run failed.");
+    } finally {
+      setRunning(false);
     }
-
-    const passByDefault = review ? review.verdict !== "incorrect" : false;
-    const partial = review?.verdict === "partially_correct";
-
-    // sequential reveal
-    for (let i = 0; i < initialCases.length; i++) {
-      await new Promise((res) => setTimeout(res, 120));
-      setCases((prev) =>
-        prev.map((c, idx) => {
-          if (idx !== i) return c;
-          let status: TestCaseStatus = passByDefault ? "pass" : "fail";
-          // for partial, fail the last case to give realistic mixed signal
-          if (partial && i === initialCases.length - 1) status = "fail";
-          return { ...c, status };
-        }),
-      );
-    }
-
-    if (review) setValidatorMsgs(reviewToValidatorMessages(review));
-    setRunning(false);
   }
 
   function handleMarkComplete() {
-    writeString(STORAGE_KEYS.labComplete(problem.slug), "1");
+    markTrackerSlugCompleted(problem.slug);
     setIsComplete(true);
   }
 
   function handleReset() {
     setCode(initialCode);
-    setValidatorMsgs([]);
+    setSections([]);
+    setOpenSections({});
     setError(null);
-    setCases(initialCases);
   }
-
-  const passCount = cases.filter((c) => c.status === "pass").length;
-  const failCount = cases.filter((c) => c.status === "fail").length;
-  const totalCount = cases.length;
-  const aggregateColor =
-    failCount > 0 ? "fail" : passCount === totalCount && totalCount > 0 ? "pass" : "neutral";
 
   return (
     <div className="pseudo-lab">
@@ -428,22 +499,14 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
           <span className="pl-difficulty">{problem.difficulty}</span>
         </div>
         <nav className="pl-tabs" aria-label="Workspace tabs">
-          {(["editor", "history", "complexity"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              className={`pl-tab${activeTab === tab ? " is-active" : ""}`}
-              onClick={() => tab === "editor" && setActiveTab(tab)}
-              aria-pressed={activeTab === tab}
-              data-disabled={tab !== "editor" ? "true" : undefined}
-            >
-              {tab === "editor"
-                ? "Editor"
-                : tab === "history"
-                  ? "History"
-                  : "Complexity"}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => void handleRun()}
+            className="pl-run"
+            disabled={running}
+          >
+            {running ? "Running…" : "▶ Run"}
+          </button>
         </nav>
         <div className="pl-top-right">
           <button
@@ -461,14 +524,6 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
             disabled={running}
           >
             {isComplete ? "✓ Complete" : "Mark complete"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleRun()}
-            className="pl-run"
-            disabled={running}
-          >
-            {running ? "Running…" : "▶ Run"}
           </button>
         </div>
       </header>
@@ -519,6 +574,28 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
               </div>
             </div>
           ) : null}
+          {problem.examples.length ? (
+            <div className="pl-side-section">
+              <p className="pl-label">Test cases</p>
+              <ol className="pl-side-cases">
+                {problem.examples.slice(0, 6).map((ex, i) => (
+                  <li key={i} className="pl-side-case">
+                    <span className="pl-side-case-num">{i + 1}.</span>
+                    <span className="pl-side-case-body">
+                      <span className="pl-side-case-row">
+                        <span className="pl-side-case-key">in</span>
+                        <span className="pl-side-case-val">{ex.input}</span>
+                      </span>
+                      <span className="pl-side-case-row">
+                        <span className="pl-side-case-key">out</span>
+                        <span className="pl-side-case-val">{ex.output}</span>
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
         </aside>
 
         <div
@@ -556,7 +633,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
                   onChange={(e) => setCode(e.target.value)}
                   onScroll={handleScroll}
                   spellCheck={false}
-                  wrap="off"
+                  wrap="soft"
                   autoCapitalize="off"
                   autoCorrect="off"
                   placeholder="// describe your algorithm, one step per line"
@@ -574,51 +651,7 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
           />
 
           <div className="pl-bottom" ref={bottomRef} style={bottomStyle}>
-            {/* TEST CASES */}
-            <div className="pl-panel">
-              <div className="pl-panel-head">
-                <span className="pl-label">Test cases</span>
-                <span className={`pl-agg pl-agg-${aggregateColor}`}>
-                  {passCount} / {totalCount}
-                </span>
-              </div>
-              <ul className="pl-cases">
-                {cases.length === 0 ? (
-                  <li className="pl-empty">No examples for this problem.</li>
-                ) : (
-                  cases.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        className={`pl-case${
-                          selectedCase === c.id ? " is-selected" : ""
-                        }`}
-                        onClick={() => setSelectedCase(c.id)}
-                      >
-                        <span className={`pl-icon pl-icon-${c.status}`}>
-                          {c.status === "pass"
-                            ? "✓"
-                            : c.status === "fail"
-                              ? "✗"
-                              : "·"}
-                        </span>
-                        <span className="pl-case-label">{c.label}</span>
-                        <span className="pl-case-input">{c.input}</span>
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-
             {/* VALIDATOR */}
-            <div
-              className="pl-resize pl-resize-col pl-resize-bottom"
-              onPointerDown={startBottomDrag(1)}
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize tests panel"
-            />
             <div className="pl-panel">
               <div className="pl-panel-head">
                 <span className="pl-label">Logic validator</span>
@@ -630,34 +663,100 @@ export function ProblemWorkspace({ problem }: ProblemWorkspaceProps) {
                     <strong>Error:</strong>&nbsp;{error}
                   </div>
                 ) : null}
-                {validatorMsgs.length === 0 && !running && !error ? (
+                {sections.length === 0 && !running && !error ? (
                   <div className="pl-msg-empty">
                     Run your pseudocode to see logic feedback here.
                   </div>
                 ) : null}
-                {validatorMsgs.map((m, i) => (
-                  <div
-                    key={m.id}
-                    className={`pl-msg pl-msg-${m.kind}`}
-                    style={{ animationDelay: `${i * 80}ms` }}
-                  >
-                    <strong>{m.concept}:</strong> {m.body}
-                  </div>
-                ))}
+                {sections.map((s, i) => {
+                  const isOpen = !!openSections[s.id];
+                  const canExpand = s.details.length > 0;
+                  return (
+                    <div
+                      key={s.id}
+                      className={`pl-msg pl-msg-${s.kind}`}
+                      style={{ animationDelay: `${i * 80}ms` }}
+                    >
+                      <div className="pl-msg-head">
+                        <strong>{s.title}:</strong>{" "}
+                        <span className="pl-msg-lead">{s.lead}</span>
+                        {canExpand ? (
+                          <button
+                            type="button"
+                            className="pl-msg-toggle"
+                            onClick={() =>
+                              setOpenSections((prev) => ({
+                                ...prev,
+                                [s.id]: !prev[s.id],
+                              }))
+                            }
+                            aria-expanded={isOpen}
+                          >
+                            {isOpen ? "Hide details" : `Show details (${s.details.length})`}
+                          </button>
+                        ) : null}
+                      </div>
+                      {canExpand && isOpen ? (
+                        <ol className="pl-msg-list">
+                          {s.details.map((d, j) => (
+                            <li key={j}>
+                              <span className="pl-msg-detail-label">
+                                {d.label}:
+                              </span>{" "}
+                              {d.body}
+                              {d.quote ? (
+                                <div className="pl-msg-quote">“{d.quote}”</div>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ol>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* GUIDE CHAT */}
-            <div
-              className="pl-resize pl-resize-col pl-resize-bottom"
-              onPointerDown={startBottomDrag(2)}
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize validator panel"
+            {/* GUIDE CHAT — inline when collapsed, side column when expanded */}
+            {!guideExpanded ? (
+              <div
+                className="pl-resize pl-resize-col pl-resize-bottom"
+                onPointerDown={startBottomDrag}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize validator panel"
+              />
+            ) : null}
+            <WorkspaceGuide
+              problemSlug={problem.slug}
+              code={code}
+              expanded={guideExpanded}
+              onToggleExpanded={toggleGuideExpanded}
+              renderMode="inline"
             />
-            <WorkspaceGuide problemSlug={problem.slug} code={code} />
           </div>
         </section>
+
+        {guideExpanded ? (
+          <>
+            <div
+              className="pl-resize pl-resize-col"
+              onPointerDown={startGuideDrag}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize guide panel"
+            />
+            <aside className="pl-guide-column">
+              <WorkspaceGuide
+                problemSlug={problem.slug}
+                code={code}
+                expanded={guideExpanded}
+                onToggleExpanded={toggleGuideExpanded}
+                renderMode="side"
+              />
+            </aside>
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -697,13 +796,21 @@ function renderInline(text: string): ReactNode {
 type WorkspaceGuideProps = {
   problemSlug: string;
   code: string;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  renderMode: "inline" | "side";
 };
 
-function WorkspaceGuide({ problemSlug, code }: WorkspaceGuideProps) {
+function WorkspaceGuide({
+  problemSlug,
+  code,
+  expanded,
+  onToggleExpanded,
+  renderMode,
+}: WorkspaceGuideProps) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -714,11 +821,11 @@ function WorkspaceGuide({ problemSlug, code }: WorkspaceGuideProps) {
   useEffect(() => {
     if (!expanded) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setExpanded(false);
+      if (e.key === "Escape") onToggleExpanded();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+  }, [expanded, onToggleExpanded]);
 
   const quickPrompts = useMemo(
     () => [
@@ -797,39 +904,39 @@ function WorkspaceGuide({ problemSlug, code }: WorkspaceGuideProps) {
     }
   }
 
+  // Render rules:
+  //  - inline + expanded: render nothing (the real panel lives in the side column)
+  //  - inline + collapsed: show the real guide panel inline (in bottom row)
+  //  - side: always show the real guide panel (only mounts when expanded)
+  if (renderMode === "inline" && expanded) {
+    return null;
+  }
+
   return (
-    <>
-      {expanded ? (
-        <div
-          className="pl-guide-backdrop"
-          onClick={() => setExpanded(false)}
-          aria-hidden="true"
-        />
-      ) : null}
-      <div className={`pl-panel pl-guide${expanded ? " pl-guide-expanded" : ""}`}>
-        <div className="pl-panel-head">
-          <span className="pl-label">Guide</span>
-          <div className="pl-guide-head-actions">
-            {messages.length > 0 ? (
-              <button
-                type="button"
-                className="pl-guide-reset"
-                onClick={() => setMessages([])}
-              >
-                reset
-              </button>
-            ) : null}
+    <div className={`pl-panel pl-guide${renderMode === "side" ? " pl-guide-side" : ""}`}>
+      <div className="pl-panel-head">
+        <span className="pl-label">Guide</span>
+        <div className="pl-guide-head-actions">
+          {messages.length > 0 ? (
             <button
               type="button"
-              className="pl-guide-expand"
-              onClick={() => setExpanded((v) => !v)}
-              aria-label={expanded ? "Collapse guide" : "Expand guide"}
-              title={expanded ? "Collapse (Esc)" : "Expand"}
+              className="pl-guide-reset"
+              onClick={() => setMessages([])}
             >
-              {expanded ? "⤫" : "⤢"}
+              reset
             </button>
-          </div>
+          ) : null}
+          <button
+            type="button"
+            className="pl-guide-expand"
+            onClick={onToggleExpanded}
+            aria-label={expanded ? "Collapse guide" : "Expand guide"}
+            title={expanded ? "Collapse (Esc)" : "Expand"}
+          >
+            {expanded ? "⤫" : "⤢"}
+          </button>
         </div>
+      </div>
       <div className="pl-guide-body" ref={listRef}>
         {messages.length === 0 && !sending ? (
           <div className="pl-guide-empty">
@@ -890,7 +997,6 @@ function WorkspaceGuide({ problemSlug, code }: WorkspaceGuideProps) {
           Send
         </button>
       </form>
-      </div>
-    </>
+    </div>
   );
 }
