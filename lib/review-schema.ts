@@ -16,11 +16,18 @@ export const guideMessageSchema = z.object({
   content: z.string().trim().min(1).max(1000),
 });
 
+export const reviewClarificationSchema = z.object({
+  quote: z.string(),
+  question: z.string(),
+});
+
 export const reviewSchema = z.object({
   verdict: reviewVerdictSchema,
   summary: z.string(),
+  strengths: z.array(z.string()),
   missing_steps: z.array(z.string()),
   logic_issues: z.array(z.string()),
+  clarifications: z.array(reviewClarificationSchema),
   edge_cases: z.array(z.string()),
   time_complexity: z.string(),
   space_complexity: z.string(),
