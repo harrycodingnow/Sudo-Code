@@ -14,6 +14,16 @@ import { readJSON, STORAGE_KEYS, writeJSON } from "@/lib/browser-storage";
 
 export const TRACKER_STORAGE_KEY = STORAGE_KEYS.tracker;
 
+type RawTrackerStore = Record<string, unknown>;
+
+function loadRawTrackerStore(): RawTrackerStore {
+  const parsed = readJSON<RawTrackerStore | null>(TRACKER_STORAGE_KEY, null);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return {};
+  }
+  return parsed;
+}
+
 export const TRACKER_PROGRESS_ORDER: TrackerProgressStatus[] = [
   "To Do",
   "In Progress",
@@ -163,6 +173,44 @@ export function markTrackerEntryCompleted(
     [slug]: nextEntry,
   });
 
+  return nextEntry;
+}
+
+/**
+ * Slug-scoped tracker helpers — read/write a single problem's tracker entry
+ * without requiring the caller to know the full problem list. Used by the
+ * workspace page where we only have the active slug.
+ *
+ * These helpers preserve every other slug's stored entry unchanged (they
+ * merge into the raw localStorage blob instead of rebuilding it from a
+ * problems[] list).
+ */
+export function readTrackerEntryForSlug(slug: string): TrackerEntry | null {
+  const raw = loadRawTrackerStore();
+  if (!(slug in raw)) return null;
+  return sanitizeEntry(raw[slug], buildDefaultEntry());
+}
+
+export function isTrackerSlugCompleted(slug: string): boolean {
+  return readTrackerEntryForSlug(slug)?.progress === "Completed";
+}
+
+export function markTrackerSlugCompleted(
+  slug: string,
+  completedAt = new Date(),
+): TrackerEntry {
+  const raw = loadRawTrackerStore();
+  const fallback = buildDefaultEntry();
+  const current =
+    slug in raw ? sanitizeEntry(raw[slug], fallback) : fallback;
+
+  const nextEntry: TrackerEntry = {
+    ...current,
+    progress: "Completed",
+    dateSolved: current.dateSolved ?? toIsoDate(completedAt),
+  };
+
+  writeJSON(TRACKER_STORAGE_KEY, { ...raw, [slug]: nextEntry });
   return nextEntry;
 }
 
